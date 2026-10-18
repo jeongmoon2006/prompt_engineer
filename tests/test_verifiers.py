@@ -29,6 +29,8 @@ def test_extract_json_variants() -> None:
 
 def test_format_scores() -> None:
     assert score_format(GOOD, FIELDS)[0] == 1.0
+    assert score_format(f"```json\n{GOOD}\n```", FIELDS)[0] == 0.75
+    assert score_format(f"Here is the record: {GOOD}", FIELDS)[0] == 0.75
     assert score_format('{"sample_id": "x", "temp": 1}', FIELDS)[0] == 0.5
     assert score_format(GOOD.replace("}", ', "extra": 1}'), FIELDS)[0] == 0.5
     assert score_format('{"sample_id": "S", "temperature_K": "hot", "concentration_mM": 1, "method": "x"}', FIELDS)[0] == 0.5

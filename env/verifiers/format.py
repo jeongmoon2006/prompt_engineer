@@ -1,7 +1,9 @@
-"""format: 1.0 valid JSON with the required keys, 0.5 parseable JSON object with wrong keys, 0 otherwise."""
+"""format: 1.0 bare JSON object with exactly the required keys and numeric types;
+0.75 same but wrapped in a code fence or prose; 0.5 parseable JSON object with wrong keys/types; 0 otherwise."""
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from env.verifiers.parsing import extract_json_object
@@ -23,6 +25,13 @@ def _is_number(v: Any) -> bool:
     return False
 
 
+def _is_bare_json(text: str) -> bool:
+    try:
+        return isinstance(json.loads(text.strip()), dict)
+    except (json.JSONDecodeError, ValueError):
+        return False
+
+
 def score_format(final_output: str, required_fields: list[str]) -> tuple[float, str]:
     obj = extract_json_object(final_output)
     if obj is None:
@@ -39,4 +48,6 @@ def score_format(final_output: str, required_fields: list[str]) -> tuple[float, 
     bad_types = [f for f in required_fields if f in NUMERIC_FIELDS and not _is_number(obj[f])]
     if bad_types:
         return 0.5, f"non-numeric value for {bad_types}"
+    if not _is_bare_json(final_output):
+        return 0.75, "JSON wrapped in code fence or prose (bare JSON expected)"
     return 1.0, ""
