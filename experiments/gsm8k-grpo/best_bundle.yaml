@@ -1,0 +1,8 @@
+reward: 0.77195
+bundle_id: grpo-9d48891e770e
+slots:
+  system: The agents are skilled mathematicians in their own right.
+  planner: Encourage the agent to solve complex mathematical word problems collaboratively
+    and independently.
+  tool_policy: Prompt politely during arithmatic practice where waiting improves accuracy
+    and fluency.

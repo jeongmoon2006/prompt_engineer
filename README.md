@@ -13,7 +13,7 @@ make smoke GPU=1                # same, orchestrator gets the host GPU
 make smoke-local                # no docker: uvicorn from .venv (needs `uv`)
 make test                       # pytest (offline; the harness uses HARNESS_PROVIDER=mock in tests)
 make e2e                        # live: 1 task x G=4 through Claude Haiku 5.5 -> rewards
-make tasks                      # regenerate env/tasks/toy_v1.jsonl (seeded)
+make tasks                      # regenerate env/tasks/toy_v2.jsonl (seeded)
 ```
 
 Training (Phase 2+) — the orchestrator needs harness + env reachable (`make up`, or `make serve-local` without docker):
@@ -45,7 +45,8 @@ Ports: orchestrator 8000, harness 8001, env 8002.
 Structured extraction from synthetic lab-notebook entries (`env/tasks/generate.py`). The agent
 may call `lookup(field)` at most 4 times and must emit `{sample_id, temperature_K, concentration_mM, method}`.
 Prompt slots: `system` (system prompt), `planner` (user-turn instruction), `tool_policy` (the tool's description).
-Reward = 0.6 correctness + 0.15 format + 0.15 tool_efficiency + 0.10 cost (weights in `env/config.yaml`).
+Reward = 0.4 correctness + 0.3 format + 0.1 tool_efficiency + 0.2 cost (weights in `env/config.yaml`;
+rebalanced from the plan's 0.6/0.15/0.15/0.10 because Haiku 5.5 saturates correctness on this domain).
 Harness model: `claude-haiku-5-5` via the Anthropic SDK (`HARNESS_MODEL` in `.env`); `HARNESS_PROVIDER=mock` runs offline.
 
 ## Domains
@@ -55,3 +56,8 @@ A domain = a task file served by the environment (`env/config.yaml: domains`), a
 `calculator` tool). The orchestrator never changes; it reads `/domain_info` to build the meta-prompt.
 
 Adding an optimizer: see Phase 4 (`Optimizer` protocol).
+
+## Results (Phase 2/3)
+See `experiments/REPORT_phase2_3.md` for the GRPO training curves, the B0/B1/B2 comparison on both
+domains with token cost, the Checkpoint 2 diagnosis, and the list of deviations from `WORK_INSTRUCTIONS.md`.
+Figures and the comparison table are in `experiments/analysis/`.

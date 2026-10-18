@@ -22,5 +22,29 @@
     "heldout_policy_sample": 0.5544625,
     "opt_tokens": 1824642,
     "opt_harness_calls": 1004
+  },
+  {
+    "domain": "gsm8k",
+    "method": "B0 hand-written",
+    "heldout": 0.67104375,
+    "heldout_policy_sample": null,
+    "opt_tokens": 0,
+    "opt_harness_calls": 0
+  },
+  {
+    "domain": "gsm8k",
+    "method": "B1 random keep-best",
+    "heldout": 0.686109375,
+    "heldout_policy_sample": 0.6746186875,
+    "opt_tokens": 1203990,
+    "opt_harness_calls": 1600
+  },
+  {
+    "domain": "gsm8k",
+    "method": "B2 GRPO meta-policy",
+    "heldout": 0.6564383125,
+    "heldout_policy_sample": 0.1004634375,
+    "opt_tokens": 1118682,
+    "opt_harness_calls": 1001
   }
 ]
