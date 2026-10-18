@@ -1,0 +1,13 @@
+[
+  {
+    "run": "toy-grpo",
+    "steps": 20,
+    "final_train": 0.3673875,
+    "heldout_b0": 0.5550701875,
+    "heldout_best": 0.57545525,
+    "heldout_policy": 0.5544625,
+    "tokens_total": 1824642,
+    "harness_calls": 1004,
+    "plot": "experiments/analysis/toy-grpo_curves.png"
+  }
+]

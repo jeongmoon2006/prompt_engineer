@@ -1,0 +1,6 @@
+slot: planner
+text: Read the notebook note below. If a value is not present in the entry, use the
+  lookup tool to retrieve it. When you are done, answer with a exactly one JSON object
+  with the keys sample_id, temperature_K, concentration_mM and method, and nothing
+  else. Determine the sample ID, the measurement temperature in kelvin, the sample
+  concentration in millimolar, and the measurement method.

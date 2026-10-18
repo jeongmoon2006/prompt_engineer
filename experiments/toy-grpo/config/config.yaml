@@ -1,0 +1,41 @@
+# rl-orchestrator configuration. Frozen into experiments/<run_id>/config/ at run start.
+run:
+  seed: 0
+  n_steps: 20
+  checkpoint_every: 5
+  experiments_dir: experiments
+  domain: toy                  # task family served by the environment (toy | gsm8k)
+policy:
+  kind: grpo                   # grpo (meta-policy pi_phi) | random (Phase 1 perturbation sampler, baseline B1)
+  base_model: Qwen/Qwen2.5-0.5B-Instruct
+  base_dtype: float32          # fp32 master weights + fp16 autocast (Turing: no bf16). float16 to save ~1 GB.
+  load_in_4bit: false          # opt-in QLoRA (bitsandbytes); required for 1.5B on 6 GB VRAM
+  gradient_checkpointing: true
+  lora: { r: 16, alpha: 32, dropout: 0.05, target_modules: [q_proj, k_proj, v_proj, o_proj] }
+  temperature: 1.0
+  max_new_tokens: 320          # baseline bundle is ~170 tokens; degenerate samples otherwise run to the cap
+  sample_chunk: 32             # completions per generate call (KV-cache memory bound)
+  max_slot_chars: 1500
+  slots: [system, planner, tool_policy]
+sampling:
+  group_size: 8                # G
+  tasks_per_step: 8            # batch = 8 tasks -> 64 trajectories
+grpo:
+  clip_eps: 0.2
+  kl_beta: 0.04
+  adv_eps: 1.0e-6
+  lr: 1.0e-4                   # DEVIATION from plan (1e-5): with LoRA and 20 steps, 1e-5 cannot move the policy measurably
+  grad_clip_norm: 1.0
+  micro_batch: 4               # trajectories per forward/backward; auto-halved above vram_limit_gb or on OOM
+  vram_limit_gb: 5.5
+eval:
+  every: 2                     # held-out evaluation every N steps (and at step 0)
+  n_tasks: 16                  # held-out tasks used for the curve (fixed seed)
+  seed: 777
+guards:
+  max_bundle_chars: 4000
+  rejected_reward: -1.0
+  max_tokens_per_step: 400000  # hard cost cap; abort the run with a clear message if exceeded
+services:
+  harness_url: ${HARNESS_URL:-http://localhost:8001}
+  env_url: ${ENV_URL:-http://localhost:8002}

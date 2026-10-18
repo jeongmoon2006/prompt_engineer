@@ -1,0 +1,12 @@
+reward: 0.76745
+bundle_id: rnd-68c44e0557f7
+slots:
+  planner: Solve the word problem below. When you are done, respond with a one JSON
+    object with the key answer holding the final number, and nothing else. Work through
+    it step by step. Use the calculator tool for any arithmetic you are not certain
+    about.
+  system: You are a precise math agent. You solve grade-school word problems step
+    by step and report a single final numeric answer.
+  tool_policy: Evaluate one arithmetic expression (numbers, + - * / and parentheses)
+    and return the result. Use it for arithmetic you cannot do reliably in your head;
+    each call costs budget.

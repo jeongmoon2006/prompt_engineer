@@ -1,0 +1,4 @@
+slot: planner
+text: Solve the word problem below. When you are done, respond with a one JSON object
+  with the key answer holding the final number, and nothing else. Work through it
+  step by step. Use the calculator tool for any arithmetic you are not certain about.

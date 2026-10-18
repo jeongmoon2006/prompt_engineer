@@ -1,0 +1,26 @@
+[
+  {
+    "domain": "toy",
+    "method": "B0 hand-written",
+    "heldout": 0.5550701875,
+    "heldout_policy_sample": null,
+    "opt_tokens": 0,
+    "opt_harness_calls": 0
+  },
+  {
+    "domain": "toy",
+    "method": "B1 random keep-best",
+    "heldout": 0.562228125,
+    "heldout_policy_sample": 0.560953125,
+    "opt_tokens": 3175914,
+    "opt_harness_calls": 1600
+  },
+  {
+    "domain": "toy",
+    "method": "B2 GRPO meta-policy",
+    "heldout": 0.57545525,
+    "heldout_policy_sample": 0.5544625,
+    "opt_tokens": 1824642,
+    "opt_harness_calls": 1004
+  }
+]
