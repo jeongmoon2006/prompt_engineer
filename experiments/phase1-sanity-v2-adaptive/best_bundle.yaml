@@ -1,0 +1,14 @@
+reward: 0.802075
+bundle_id: rnd-0c2c853d0514
+slots:
+  planner: When you are done, respond with a exactly one JSON object with the keys
+    sample_id, temperature_K, concentration_mM and method, and nothing else. If a
+    value is not stated in the entry, use the lookup tool to retrieve it. Find the
+    sample ID, the measurement temperature in kelvin, the sample concentration in
+    millimolar, and the measurement method. Examine the notebook note below.
+  system: 'Convert units when necessary: report temperature in kelvin and concentration
+    in millimolar. You are a careful laboratory data-extraction assistant. You read
+    lab notebook entries and output structured records.'
+  tool_policy: Use it exclusively for values that are not stated in the entry text;
+    each call costs budget. Look up one metadata field recorded alongside the notebook
+    entry.
