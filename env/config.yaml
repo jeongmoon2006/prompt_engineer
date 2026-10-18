@@ -1,4 +1,4 @@
-# staging-env reward configuration (toy domain, Phase 1).
+# staging-env configuration: reward weights and task families (domains).
 reward:
   # Phase 2 rebalance (was 0.60/0.15/0.15/0.10): Haiku 5.5 saturates correctness on this domain, so the
   # learnable components (format, cost) carry more weight. Correctness stays in to penalize regressions.
@@ -7,9 +7,32 @@ reward:
   token_budget: 4000
   n_max_tool_calls: 4
   numeric_scales: { temperature_K: 5.0, concentration_mM: 2.0 }
-tasks:
-  file: toy_v2.jsonl        # v1 = easy (saturated by Haiku 5.5), v2 = hard
+domains:
+  toy:
+    file: toy_v2.jsonl
+    fields: [sample_id, temperature_K, concentration_mM, method]
+    n_max_tool_calls: 4
+    description: >-
+      a short laboratory notebook entry; the agent extracts one JSON record with the fields
+      sample_id, temperature_K, concentration_mM and method, using a lookup(field) tool for values
+      that are only in the metadata
+  gsm8k:
+    file: gsm8k_v1.jsonl
+    fields: [answer]
+    n_max_tool_calls: 6
+    description: >-
+      a grade-school math word problem (GSM8K); the agent must return one JSON record with the
+      field answer (a number), optionally using a calculator(expression) tool for arithmetic
+tasks:   # toy generator settings (python -m env.tasks.generate)
+  file: toy_v2.jsonl
   difficulty: hard
   seed: 1234
   n_total: 200
   n_train: 160
+hf:      # second domain (python -m env.tasks.hf_gsm8k)
+  dataset: openai/gsm8k
+  config: main
+  seed: 2024
+  n_train: 300
+  n_heldout: 100
+  cache_dir: env/tasks/hf
