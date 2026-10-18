@@ -8,7 +8,7 @@ endif
 RUN ?= toy
 UV ?= uv
 
-.PHONY: up down logs smoke smoke-local test train analyze venv clean
+.PHONY: up down logs smoke smoke-local test e2e tasks train analyze venv clean
 
 up:
 	$(COMPOSE) $(COMPOSE_FILES) up -d --build
@@ -32,6 +32,14 @@ venv:
 
 test: venv
 	$(UV) run pytest -q
+
+## Live end-to-end: 1 task x G=4 against the real model API (reads .env).
+e2e: venv
+	RUN_LIVE=1 $(UV) run pytest -q -s tests/test_e2e_live.py
+
+## Regenerate the toy task set (deterministic; see env/config.yaml).
+tasks: venv
+	$(UV) run python -m env.tasks.generate
 
 train:
 	@echo "make train RUN=$(RUN): implemented in Phase 2 (orchestrator/trainer.py)"; exit 1
