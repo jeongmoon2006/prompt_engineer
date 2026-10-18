@@ -67,3 +67,16 @@ def test_server_prompts_and_run_batch() -> None:
     assert set(c.get("/prompts").json()) == {"system", "planner", "tool_policy"}
     r = c.post("/run_batch", json={"task": task().model_dump(), "bundles": [PromptBundle(bundle_id="b", slots={}).model_dump()]})
     assert r.status_code == 200 and len(r.json()["traces"]) == 1
+
+
+async def test_client_exception_is_recorded_not_raised() -> None:
+    class Boom(LLMClient):
+        def __init__(self) -> None:
+            self.cfg = LLMConfig(provider="mock")
+        async def complete(self, system, messages, tools):
+            raise TypeError("Could not resolve authentication method")
+
+    h = Harness(client=Boom())
+    traces = await h.run_batch(task(), [PromptBundle(bundle_id="b", slots={})])
+    assert traces[0].error.startswith("client_error:TypeError")
+    assert traces[0].final_output == "" and traces[0].total_tokens == 0

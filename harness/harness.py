@@ -98,6 +98,9 @@ class Harness:
             except anthropic.APIConnectionError as e:
                 tracer.error = f"connection_error:{str(e)[:200]}"
                 break
+            except Exception as e:  # noqa: BLE001 - one bad trajectory must not fail the batch
+                tracer.error = f"client_error:{type(e).__name__}:{str(e)[:200]}"
+                break
             tracer.assistant(resp.text, resp.tool_calls, resp.tokens_in, resp.tokens_out,
                              resp.latency_ms, resp.stop_reason, resp.request_id)
             if resp.text:
