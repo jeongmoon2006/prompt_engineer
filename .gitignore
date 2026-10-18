@@ -1,0 +1,13 @@
+.env
+.venv/
+.run/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+# experiment artifacts (keep configs/metrics; never commit traces or weights)
+experiments/*/traces/
+experiments/*/checkpoints/
+*.safetensors
+*.bin
+*.pt
