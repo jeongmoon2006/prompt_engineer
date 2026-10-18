@@ -176,6 +176,8 @@ class Trainer:
         upd: dict[str, Any] = {}
         if self.kind == "grpo":
             upd = self.updater.update(completions, advantages)
+            upd["mean_abs_adv"] = statistics.fmean(abs(a) for a in advantages) if advantages else 0.0
+            upd["frac_zero_adv_groups"] = sum(1 for g_ in results if len({round(rw.total, 6) for _, rw in g_}) == 1) / max(len(results), 1)
         t_upd = time.perf_counter() - t1
 
         nv = max(len(valid_r), 1)

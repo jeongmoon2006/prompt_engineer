@@ -13,7 +13,7 @@ policy:
   gradient_checkpointing: true
   lora: { r: 16, alpha: 32, dropout: 0.05, target_modules: [q_proj, k_proj, v_proj, o_proj] }
   temperature: 1.0
-  max_new_tokens: 400
+  max_new_tokens: 320          # baseline bundle is ~170 tokens; degenerate samples otherwise run to the cap
   sample_chunk: 32             # completions per generate call (KV-cache memory bound)
   max_slot_chars: 1500
   slots: [system, planner, tool_policy]
@@ -24,9 +24,9 @@ grpo:
   clip_eps: 0.2
   kl_beta: 0.04
   adv_eps: 1.0e-6
-  lr: 1.0e-5
+  lr: 1.0e-4                   # DEVIATION from plan (1e-5): with LoRA and 20 steps, 1e-5 cannot move the policy measurably
   grad_clip_norm: 1.0
-  micro_batch: 2               # trajectories per forward/backward; auto-halved above vram_limit_gb or on OOM
+  micro_batch: 4               # trajectories per forward/backward; auto-halved above vram_limit_gb or on OOM
   vram_limit_gb: 5.5
 eval:
   every: 2                     # held-out evaluation every N steps (and at step 0)
