@@ -1,0 +1,11 @@
+# staging-env reward configuration (toy domain, Phase 1).
+reward:
+  weights: { correctness: 0.60, format: 0.15, tool_efficiency: 0.15, cost: 0.10 }
+  cost_lambda: 1.0
+  token_budget: 4000
+  n_max_tool_calls: 4
+  numeric_scales: { temperature_K: 5.0, concentration_mM: 2.0 }
+tasks:
+  seed: 1234
+  n_total: 200
+  n_train: 160
