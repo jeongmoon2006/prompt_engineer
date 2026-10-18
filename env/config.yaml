@@ -1,6 +1,8 @@
 # staging-env reward configuration (toy domain, Phase 1).
 reward:
-  weights: { correctness: 0.60, format: 0.15, tool_efficiency: 0.15, cost: 0.10 }
+  # Phase 2 rebalance (was 0.60/0.15/0.15/0.10): Haiku 5.5 saturates correctness on this domain, so the
+  # learnable components (format, cost) carry more weight. Correctness stays in to penalize regressions.
+  weights: { correctness: 0.40, format: 0.30, tool_efficiency: 0.10, cost: 0.20 }
   cost_lambda: 1.0
   token_budget: 4000
   n_max_tool_calls: 4
