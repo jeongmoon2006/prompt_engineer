@@ -28,8 +28,24 @@ def test_parse_bundle_roundtrip_and_guards() -> None:
 
 
 @pytest.fixture(scope="module")
-def tiny_policy() -> MetaPolicy:
-    cfg = {"base_model": "hf-internal-testing/tiny-random-Qwen2ForCausalLM", "base_dtype": "float32",
+def tiny_model_dir(tmp_path_factory: pytest.TempPathFactory) -> str:
+    """A tiny random Qwen2 (built locally from a config) + the real Qwen2.5 tokenizer/chat template."""
+    from transformers import AutoTokenizer, Qwen2Config, Qwen2ForCausalLM
+
+    d = tmp_path_factory.mktemp("tiny-qwen2")
+    tok = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-0.5B-Instruct")
+    cfg = Qwen2Config(vocab_size=len(tok), hidden_size=32, intermediate_size=64, num_hidden_layers=2,
+                      num_attention_heads=4, num_key_value_heads=2, max_position_embeddings=2048,
+                      eos_token_id=tok.eos_token_id, pad_token_id=tok.pad_token_id, tie_word_embeddings=True)
+    torch.manual_seed(0)
+    Qwen2ForCausalLM(cfg).save_pretrained(d)
+    tok.save_pretrained(d)
+    return str(d)
+
+
+@pytest.fixture(scope="module")
+def tiny_policy(tiny_model_dir: str) -> MetaPolicy:
+    cfg = {"base_model": tiny_model_dir, "base_dtype": "float32",
            "gradient_checkpointing": False, "lora": {"r": 4, "alpha": 8, "dropout": 0.0, "target_modules": ["q_proj", "v_proj"]},
            "temperature": 1.0, "max_new_tokens": 12, "max_slot_chars": 1500, "slots": SLOTS}
     return MetaPolicy(cfg, BASE, task_info={"fields": ["a", "b"], "n_max": 2}, device=torch.device("cpu"))

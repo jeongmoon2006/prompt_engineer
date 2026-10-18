@@ -59,8 +59,9 @@ serve-local:
 stop-local:
 	./scripts/stop_local.sh
 
+COMPARE ?=
 analyze: venv
-	$(UV) run --no-sync python -m orchestrator.analyze $(RUN) $(RUNS)
+	$(UV) run --no-sync python -m orchestrator.analyze $(RUN) $(RUNS) $(if $(COMPARE),--compare '$(COMPARE)')
 
 clean:
 	rm -rf .venv .pytest_cache .ruff_cache

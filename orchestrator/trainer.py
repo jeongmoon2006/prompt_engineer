@@ -85,10 +85,13 @@ class Trainer:
         if self.kind == "random":
             return [[{"bundle": b, "completion_ids": None, "reject_reason": None} for b in self.policy.sample(g)]
                     for _ in range(n_groups)]
-        groups = []
-        for _ in range(n_groups):
-            groups.append(self.policy.sample(g))
-        return groups
+        # The meta-prompt is task-independent, so all n_groups*g completions come from one batched
+        # generate call (chunked to bound KV-cache memory), then are split into groups.
+        chunk = int(self.cfg["policy"].get("sample_chunk", 32))
+        flat: list[dict[str, Any]] = []
+        while len(flat) < n_groups * g:
+            flat.extend(self.policy.sample(min(chunk, n_groups * g - len(flat))))
+        return [flat[i * g:(i + 1) * g] for i in range(n_groups)]
 
     # ------------------------------------------------------------------ rollouts
     async def rollout(self, task: Task, bundles: list[PromptBundle]) -> tuple[list[Trace], list[Reward]]:

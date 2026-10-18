@@ -16,6 +16,20 @@ make e2e                        # live: 1 task x G=4 through Claude Haiku 5.5 ->
 make tasks                      # regenerate env/tasks/toy_v1.jsonl (seeded)
 ```
 
+Training (Phase 2+) — the orchestrator needs harness + env reachable (`make up`, or `make serve-local` without docker):
+
+```bash
+make train RUN=toy-grpo STEPS=20                 # GRPO meta-policy (Qwen2.5-0.5B + LoRA), toy domain
+make train RUN=toy-random POLICY=random          # B1: random-perturbation keep-best, same budget
+make train RUN=gsm8k-grpo DOMAIN=gsm8k           # second domain (python -m env.tasks.hf_gsm8k first)
+make analyze RUN=toy-grpo                        # reward / KL / rejection curves -> experiments/analysis/
+make analyze COMPARE='{"toy": {"B1": "toy-random", "B2": "toy-grpo"}}'   # B0/B1/B2 table + figure
+```
+
+Hardware notes (GTX 1660 Super, 6 GB, no bf16): fp32 LoRA master weights + fp16 autocast with GradScaler,
+gradient checkpointing, micro-batched accumulation with an automatic halving above 5.5 GB peak VRAM.
+Smoke tests run on CPU; set `CUDA_VISIBLE_DEVICES=` to force CPU.
+
 Then drive one iteration of the loop: `curl -X POST localhost:8000/step -H 'content-type: application/json' -d '{"n_tasks": 2}'`.
 Every run writes `experiments/<run_id>/` with frozen configs, `metrics.jsonl`, `best_bundle.yaml`
 and `traces/trajectories.jsonl` (one line per task x bundle x trace x reward).
@@ -34,4 +48,10 @@ Prompt slots: `system` (system prompt), `planner` (user-turn instruction), `tool
 Reward = 0.6 correctness + 0.15 format + 0.15 tool_efficiency + 0.10 cost (weights in `env/config.yaml`).
 Harness model: `claude-haiku-5-5` via the Anthropic SDK (`HARNESS_MODEL` in `.env`); `HARNESS_PROVIDER=mock` runs offline.
 
-Swapping the domain and adding an optimizer: documented in Phase 4/6.
+## Domains
+A domain = a task file served by the environment (`env/config.yaml: domains`), a correctness verifier
+(`env/reward.py` dispatch), baseline prompts under `harness/prompts/<domain>/` and a tool executor in
+`harness/tools.py`. Shipped: `toy` (lab-notebook extraction, `lookup` tool) and `gsm8k` (Hugging Face GSM8K,
+`calculator` tool). The orchestrator never changes; it reads `/domain_info` to build the meta-prompt.
+
+Adding an optimizer: see Phase 4 (`Optimizer` protocol).

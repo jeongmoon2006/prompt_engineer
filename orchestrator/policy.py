@@ -206,9 +206,16 @@ class MetaPolicy:
         grad_ctx = torch.no_grad() if ref else nullcontext()
         with ctx, grad_ctx, self.autocast():
             out = self.model(input_ids=seq, attention_mask=attn, use_cache=False, logits_to_keep=T + 1)
-        logits = out.logits[:, :-1, :].float()        # predicts positions P .. P+T-1
+        logits = out.logits[:, :-1, :]                # predicts positions P .. P+T-1 (fp16 under autocast)
         targets = seq[:, P:]
-        logp = torch.log_softmax(logits, dim=-1).gather(-1, targets.unsqueeze(-1)).squeeze(-1)
+        # Selective log-softmax, one sequence at a time: avoids materialising a [B, T, V] fp32 log_softmax
+        # (V = 152k makes that ~0.5 GB per sequence) which matters on a 6 GB card.
+        rows = []
+        for b in range(B):
+            lb = logits[b].float()
+            rows.append(lb.gather(-1, targets[b].unsqueeze(-1)).squeeze(-1) - torch.logsumexp(lb, dim=-1))
+            del lb
+        logp = torch.stack(rows, dim=0)
         return logp * mask, mask
 
     # ------------------------------------------------------------------ persistence

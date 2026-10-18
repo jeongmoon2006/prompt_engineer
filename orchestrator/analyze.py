@@ -58,18 +58,65 @@ def plot_run(run_dir: Path, out_dir: Path) -> dict[str, Any]:
             "harness_calls": train[-1]["extra"]["harness_calls_total"] if train else 0, "plot": str(path)}
 
 
+def compare(spec: dict[str, dict[str, str]], exp: Path, out: Path) -> list[dict[str, Any]]:
+    """spec: {domain: {"B1": run_id, "B2": run_id}} -> Phase 3 table (markdown + json) and bar figure.
+
+    B0 = hand-written prompts (held-out, from any run's heldout record; cost 0).
+    B1 = random-perturbation keep-best (held-out score of its best bundle; cost = its optimisation tokens).
+    B2 = GRPO (held-out score of best bundle and of a fresh policy sample; cost = its optimisation tokens).
+    """
+    rows: list[dict[str, Any]] = []
+    for domain, runs in spec.items():
+        _, h1 = load_metrics(exp / runs["B1"])
+        t2, h2 = load_metrics(exp / runs["B2"])
+        t1, _ = load_metrics(exp / runs["B1"])
+        b0 = h2[-1]["b0"]
+        rows.append({"domain": domain, "method": "B0 hand-written", "heldout": b0, "heldout_policy_sample": None,
+                     "opt_tokens": 0, "opt_harness_calls": 0})
+        rows.append({"domain": domain, "method": "B1 random keep-best", "heldout": h1[-1].get("best_bundle"), "heldout_policy_sample": h1[-1].get("policy_sample"),
+                     "opt_tokens": t1[-1]["extra"]["tokens_total"], "opt_harness_calls": t1[-1]["extra"]["harness_calls_total"]})
+        rows.append({"domain": domain, "method": "B2 GRPO meta-policy", "heldout": h2[-1].get("best_bundle"), "heldout_policy_sample": h2[-1].get("policy_sample"),
+                     "opt_tokens": t2[-1]["extra"]["tokens_total"], "opt_harness_calls": t2[-1]["extra"]["harness_calls_total"]})
+    out.mkdir(parents=True, exist_ok=True)
+    md = ["| domain | method | held-out reward (best bundle) | held-out reward (policy sample) | optimisation tokens | harness calls |",
+          "|---|---|---|---|---|---|"]
+    for r in rows:
+        ps = "-" if r["heldout_policy_sample"] is None else f"{r['heldout_policy_sample']:.3f}"
+        md.append(f"| {r['domain']} | {r['method']} | {r['heldout']:.3f} | {ps} | {r['opt_tokens']:,} | {r['opt_harness_calls']} |")
+    (out / "baselines_table.md").write_text("\n".join(md) + "\n")
+    (out / "baselines.json").write_text(json.dumps(rows, indent=2))
+    domains = list(spec)
+    methods = ["B0 hand-written", "B1 random keep-best", "B2 GRPO meta-policy"]
+    fig, ax = plt.subplots(figsize=(7, 4))
+    w = 0.25
+    for j, m in enumerate(methods):
+        vals = [next(r["heldout"] for r in rows if r["domain"] == d and r["method"] == m) for d in domains]
+        ax.bar([i + (j - 1) * w for i in range(len(domains))], vals, w, label=m)
+        for i, v in enumerate(vals):
+            ax.text(i + (j - 1) * w, v + 0.005, f"{v:.3f}", ha="center", fontsize=7)
+    ax.set_xticks(range(len(domains))); ax.set_xticklabels(domains); ax.set_ylabel("held-out reward"); ax.legend(fontsize=8)
+    ax.set_title("B0 / B1 / B2 under identical optimisation budgets"); ax.grid(axis="y", alpha=.3)
+    fig.tight_layout(); fig.savefig(out / "baselines.png", dpi=130); plt.close(fig)
+    print("\n".join(md))
+    return rows
+
+
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("runs", nargs="+", help="run ids under experiments/")
+    p.add_argument("runs", nargs="*", help="run ids under experiments/ to plot")
     p.add_argument("--experiments-dir", default="experiments")
     p.add_argument("--out", default=None)
+    p.add_argument("--compare", default=None, help='JSON {"toy": {"B1": run, "B2": run}, ...} -> Phase 3 table + figure')
     a = p.parse_args()
     exp = Path(a.experiments_dir)
     out = Path(a.out) if a.out else exp / "analysis"
     rows = [plot_run(exp / r, out) for r in a.runs]
     for r in rows:
         print(json.dumps(r))
-    (out / "summary.json").write_text(json.dumps(rows, indent=2))
+    if rows:
+        (out / "summary.json").write_text(json.dumps(rows, indent=2))
+    if a.compare:
+        compare(json.loads(a.compare), exp, out)
 
 
 if __name__ == "__main__":
