@@ -14,12 +14,21 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.5", "python-dotenv>=1.0"]
+dev = ["pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.5", "python-dotenv>=1.0", "matplotlib>=3.8", "datasets>=2.20"]
 # Only needed to run the orchestrator's training code on the host (Phase 2+).
-ml = ["torch>=2.4", "transformers>=4.44", "peft>=0.12", "accelerate>=0.33"]
+ml = ["torch>=2.4,<2.7", "transformers>=4.44", "peft>=0.12", "accelerate>=0.33"]
 
 [tool.uv]
 package = false
+
+# CUDA 12.4 wheels: supports Turing (GTX 1660 Super, cc 7.5). Falls back to CPU where no GPU exists.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu124", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

@@ -103,3 +103,16 @@ def test_determinism() -> None:
     a = compute_reward(_task(), tr, GT, cfg)
     b = compute_reward(_task(), Trace.model_validate(tr.model_dump()), GT, cfg)
     assert a == b
+
+
+def test_gsm8k_numeric_answer_and_dispatch() -> None:
+    from env.verifiers.numeric_answer import score_numeric_answer
+    assert score_numeric_answer('{"answer": 42}', 42.0)[0] == 1.0
+    assert score_numeric_answer('{"answer": "1,250"}', 1250.0)[0] == 1.0
+    assert score_numeric_answer('{"answer": 41}', 42.0)[0] == 0.0
+    assert score_numeric_answer('{"result": 42}', 42.0)[0] == 0.0
+    cfg = load_config()
+    t = Task(task_id="g", description="d", context={"domain": "gsm8k", "output_fields": ["answer"], "n_max_tool_calls": 6})
+    tr = Trace(task_id="g", bundle_id="b", steps=[], final_output='{"answer": 42}', total_tokens=400)
+    r = compute_reward(t, tr, {"answer": 42.0}, cfg)
+    assert r.components["correctness"] == 1.0 and r.components["format"] == 1.0 and r.components["tool_efficiency"] == 1.0

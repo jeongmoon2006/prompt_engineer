@@ -35,3 +35,12 @@ def test_evaluate_rejects_unknown_or_mismatched() -> None:
     assert c.post("/evaluate", json={"task": bad_task, "traces": [tr]}).status_code == 404
     tr2 = Trace(task_id="other", bundle_id="b").model_dump()
     assert c.post("/evaluate", json={"task": task, "traces": [tr2]}).status_code == 422
+
+
+def test_domain_info_and_domain_filter() -> None:
+    info = c.get("/domain_info", params={"domain": "toy"}).json()
+    assert info["fields"] == ["sample_id", "temperature_K", "concentration_mM", "method"] and info["n_max"] == 4 and info["loaded"]
+    assert c.get("/domain_info", params={"domain": "nope"}).status_code == 404
+    assert c.get("/tasks", params={"domain": "nope"}).status_code == 404
+    ts = c.get("/tasks", params={"domain": "toy", "n": 2}).json()
+    assert all(t["context"]["domain"] == "toy" for t in ts)

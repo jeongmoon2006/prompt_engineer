@@ -8,7 +8,7 @@ endif
 RUN ?= toy
 UV ?= uv
 
-.PHONY: up down logs smoke smoke-local test e2e tasks train analyze venv clean
+.PHONY: up down logs smoke smoke-local test e2e tasks train serve-local stop-local analyze venv clean
 
 up:
 	$(COMPOSE) $(COMPOSE_FILES) up -d --build
@@ -41,11 +41,26 @@ e2e: venv
 tasks: venv
 	$(UV) run python -m env.tasks.generate
 
+## Train: with docker -> inside the orchestrator container; without -> host venv against local harness/env.
+STEPS ?=
+POLICY ?=
+DOMAIN ?=
+TRAIN_ARGS := --run-id $(RUN) $(if $(STEPS),--steps $(STEPS)) $(if $(POLICY),--policy $(POLICY)) $(if $(DOMAIN),--domain $(DOMAIN))
 train:
-	@echo "make train RUN=$(RUN): implemented in Phase 2 (orchestrator/trainer.py)"; exit 1
+	@if command -v docker >/dev/null 2>&1; then \
+	  $(COMPOSE) $(COMPOSE_FILES) exec orchestrator python -m orchestrator.trainer $(TRAIN_ARGS); \
+	else \
+	  ./scripts/serve_local.sh && set -a && . ./.env && set +a && $(UV) run --no-sync python -m orchestrator.trainer $(TRAIN_ARGS); \
+	fi
 
-analyze:
-	@echo "make analyze RUN=$(RUN): implemented in Phase 3/5"; exit 1
+serve-local:
+	./scripts/serve_local.sh
+
+stop-local:
+	./scripts/stop_local.sh
+
+analyze: venv
+	$(UV) run --no-sync python -m orchestrator.analyze $(RUN) $(RUNS)
 
 clean:
 	rm -rf .venv .pytest_cache .ruff_cache

@@ -21,8 +21,11 @@ def task() -> Task:
     })
 
 
-def test_baseline_prompts_have_three_slots() -> None:
-    assert set(load_baseline_prompts()) == {"system", "planner", "tool_policy"}
+def test_baseline_prompts_have_three_slots_per_domain() -> None:
+    assert set(load_baseline_prompts("toy")) == {"system", "planner", "tool_policy"}
+    assert set(load_baseline_prompts("gsm8k")) == {"system", "planner", "tool_policy"}
+    with pytest.raises(FileNotFoundError):
+        load_baseline_prompts("nope")
 
 
 def test_slot_resolution_overrides_only_known_slots() -> None:
@@ -65,6 +68,8 @@ def test_server_prompts_and_run_batch() -> None:
     srv._harness = mock_harness()
     c = TestClient(srv.app)
     assert set(c.get("/prompts").json()) == {"system", "planner", "tool_policy"}
+    assert set(c.get("/prompts", params={"domain": "gsm8k"}).json()) == {"system", "planner", "tool_policy"}
+    assert c.get("/prompts", params={"domain": "nope"}).status_code == 404
     r = c.post("/run_batch", json={"task": task().model_dump(), "bundles": [PromptBundle(bundle_id="b", slots={}).model_dump()]})
     assert r.status_code == 200 and len(r.json()["traces"]) == 1
 
@@ -80,3 +85,30 @@ async def test_client_exception_is_recorded_not_raised() -> None:
     traces = await h.run_batch(task(), [PromptBundle(bundle_id="b", slots={})])
     assert traces[0].error.startswith("client_error:TypeError")
     assert traces[0].final_output == "" and traces[0].total_tokens == 0
+
+
+def test_calculator_tool_and_safe_eval() -> None:
+    from harness.tools import execute_tool, safe_eval
+    assert safe_eval("2 + 3 * (4 - 1)") == 11
+    assert safe_eval("-7 / 2") == -3.5
+    for bad in ["__import__('os')", "a + 1", "2 ** 1000", "(1).real"]:
+        with pytest.raises((ValueError, SyntaxError)):
+            safe_eval(bad)
+    t = Task(task_id="g", description="d", context={"domain": "gsm8k", "input_text": "q", "n_max_tool_calls": 6,
+             "tool": {"name": "calculator", "input_schema": {"type": "object", "properties": {"expression": {"type": "string"}},
+                                                             "required": ["expression"], "additionalProperties": False}}})
+    assert execute_tool(t, "calculator", {"expression": "12*12"}) == ("144", False)
+    assert execute_tool(t, "calculator", {"expression": "1/0"})[1] is True
+    assert execute_tool(t, "lookup", {"field": "x"})[1] is True
+
+
+async def test_gsm8k_task_runs_with_calculator_in_mock() -> None:
+    h = mock_harness()
+    t = Task(task_id="g", description="d", context={"domain": "gsm8k", "input_text": "What is 2+2?", "input_label": "Problem",
+             "n_max_tool_calls": 6, "output_fields": ["answer"],
+             "tool": {"name": "calculator", "input_schema": {"type": "object", "properties": {"expression": {"type": "string"}},
+                                                             "required": ["expression"], "additionalProperties": False}}})
+    tr = (await h.run_batch(t, [PromptBundle(bundle_id="b", slots={})]))[0]
+    assert tr.steps[1]["tool_call"][0]["name"] == "calculator"
+    assert tr.steps[2]["tool_result"][0]["content"] == "4"
+    assert "Problem:" in tr.steps[0]["content"]

@@ -1,5 +1,6 @@
 """Orchestrator: random policy shapes, and the full loop in-process (mock LLM) through the HTTP contracts."""
 
+import json
 import math
 import random
 from pathlib import Path
@@ -42,6 +43,8 @@ async def test_full_loop_offline(tmp_path: Path) -> None:
     cfg = load_config()
     cfg["run"]["experiments_dir"] = str(tmp_path)
     cfg["sampling"]["group_size"] = 4
+    cfg["policy"]["kind"] = "random"
+    cfg["eval"]["every"] = 0
     h, e = _mock_clients()
     trainer = Trainer(cfg, h, e, run_id="offline-e2e")
     res = await trainer.step(n_tasks=2)
@@ -64,8 +67,46 @@ async def test_cost_guard_aborts(tmp_path: Path) -> None:
     cfg = load_config()
     cfg["run"]["experiments_dir"] = str(tmp_path)
     cfg["guards"]["max_tokens_per_step"] = 1
+    cfg["policy"]["kind"] = "random"
+    cfg["eval"]["every"] = 0
     h, e = _mock_clients()
     trainer = Trainer(cfg, h, e, run_id="guard")
     with pytest.raises(RuntimeError, match="cost guard"):
         await trainer.step(n_tasks=1)
+    await h.aclose(); await e.aclose()
+
+
+async def test_heldout_eval_and_best_bundle_dropin(tmp_path: Path) -> None:
+    cfg = load_config()
+    cfg["run"]["experiments_dir"] = str(tmp_path)
+    cfg["sampling"]["group_size"] = 2
+    cfg["policy"]["kind"] = "random"
+    cfg["eval"]["every"] = 1
+    cfg["eval"]["n_tasks"] = 3
+    h, e = _mock_clients()
+    trainer = Trainer(cfg, h, e, run_id="ho")
+    res = await trainer.step(n_tasks=1)
+    ho = res.extra["heldout"]
+    assert ho["n_tasks"] == 3 and math.isfinite(ho["b0"]) and math.isfinite(ho["best_bundle"]) and math.isfinite(ho["policy_sample"])
+    kinds = [json.loads(l)["kind"] for l in (tmp_path / "ho" / "metrics.jsonl").read_text().splitlines()]
+    assert kinds == ["heldout", "train", "heldout"]  # pre-eval, step, post-eval
+    dropin = sorted(p.name for p in (tmp_path / "ho" / "best_bundle").glob("*.yaml"))
+    assert dropin == ["planner.yaml", "system.yaml", "tool_policy.yaml"]
+    await h.aclose(); await e.aclose()
+
+
+async def test_gsm8k_domain_loop_offline(tmp_path: Path) -> None:
+    """Domain switch exercises /prompts?domain, /tasks?domain and the calculator tool end to end (mock LLM)."""
+    import env.server as env_srv
+    if not env_srv.STORE.list(domain="gsm8k"):
+        pytest.skip("gsm8k tasks not generated (python -m env.tasks.hf_gsm8k)")
+    cfg = load_config()
+    cfg["run"].update({"experiments_dir": str(tmp_path), "domain": "gsm8k"})
+    cfg["sampling"]["group_size"] = 2
+    cfg["policy"]["kind"] = "random"
+    cfg["eval"]["every"] = 0
+    h, e = _mock_clients()
+    trainer = Trainer(cfg, h, e, run_id="g")
+    res = await trainer.step(n_tasks=2)
+    assert res.extra["n_trajectories"] == 4 and set(res.extra["components_mean"]) == {"correctness", "format", "tool_efficiency", "cost"}
     await h.aclose(); await e.aclose()

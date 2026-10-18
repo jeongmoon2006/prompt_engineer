@@ -43,8 +43,8 @@ class ServiceClient:
 
 
 class HarnessClient(ServiceClient):
-    async def baseline_prompts(self) -> dict[str, str]:
-        return (await self._request("GET", "/prompts")).json()
+    async def baseline_prompts(self, domain: str = "toy") -> dict[str, str]:
+        return (await self._request("GET", "/prompts", params={"domain": domain})).json()
 
     async def run_batch(self, task: Task, bundles: list[PromptBundle]) -> list[Trace]:
         body = RunBatchRequest(task=task, bundles=bundles).model_dump()
@@ -52,9 +52,12 @@ class HarnessClient(ServiceClient):
 
 
 class EnvClient(ServiceClient):
-    async def tasks(self, split: str | None = None, n: int | None = None, seed: int | None = None) -> list[Task]:
-        params = {k: v for k, v in {"split": split, "n": n, "seed": seed}.items() if v is not None}
+    async def tasks(self, domain: str | None = None, split: str | None = None, n: int | None = None, seed: int | None = None) -> list[Task]:
+        params = {k: v for k, v in {"domain": domain, "split": split, "n": n, "seed": seed}.items() if v is not None}
         return [Task.model_validate(t) for t in (await self._request("GET", "/tasks", params=params)).json()]
+
+    async def domain_info(self, domain: str = "toy") -> dict[str, Any]:
+        return (await self._request("GET", "/domain_info", params={"domain": domain})).json()
 
     async def evaluate(self, task: Task, traces: list[Trace]) -> list[Reward]:
         body = EvaluateRequest(task=task, traces=traces).model_dump()

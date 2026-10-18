@@ -32,6 +32,8 @@ async def test_one_task_g4_live(tmp_path: Path) -> None:
     cfg = load_config()
     cfg["run"]["experiments_dir"] = str(tmp_path)
     cfg["sampling"]["group_size"] = 4
+    cfg["policy"]["kind"] = "random"
+    cfg["eval"]["every"] = 0
     trainer = Trainer(cfg, h, e, run_id="live-e2e")
     res = await trainer.step(n_tasks=1)
     assert res.extra["n_trajectories"] == 4

@@ -38,3 +38,12 @@ def test_store_loads_shipped_tasks() -> None:
     t = store.list(n=1)[0]
     assert store.ground_truth(t.task_id) is not None
     assert store.ground_truth("nope") is None
+
+
+def test_gsm8k_record_builder_without_download() -> None:
+    from env.tasks.hf_gsm8k import parse_answer, to_record
+    assert parse_answer("Natalia sold 48/2 = 24 clips.\n#### 72") == 72.0
+    assert parse_answer("... #### 1,250.5") == 1250.5
+    r = to_record({"question": "What is 2+2?", "answer": "2+2=4\n#### 4"}, 0, "train", 6)
+    assert r["ground_truth"] == {"answer": 4.0} and r["task"]["context"]["tool"]["name"] == "calculator"
+    assert r["task"]["context"]["domain"] == "gsm8k"
