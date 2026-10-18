@@ -13,10 +13,9 @@ from shared.schemas import EvaluateRequest, EvaluateResponse, HealthResponse, Ta
 
 SERVICE = "staging-env"
 ROOT = Path(__file__).resolve().parent
-TASK_FILE = Path(os.environ.get("ENV_TASK_FILE", ROOT / "tasks" / "toy_v1.jsonl"))
-
 app = FastAPI(title=SERVICE)
 CFG = load_config()
+TASK_FILE = Path(os.environ.get("ENV_TASK_FILE", ROOT / "tasks" / CFG["tasks"].get("file", "toy_v2.jsonl")))
 STORE = TaskStore(TASK_FILE)
 
 

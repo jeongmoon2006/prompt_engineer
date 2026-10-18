@@ -6,6 +6,8 @@ reward:
   n_max_tool_calls: 4
   numeric_scales: { temperature_K: 5.0, concentration_mM: 2.0 }
 tasks:
+  file: toy_v2.jsonl        # v1 = easy (saturated by Haiku 5.5), v2 = hard
+  difficulty: hard
   seed: 1234
   n_total: 200
   n_train: 160

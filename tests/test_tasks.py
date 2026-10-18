@@ -18,8 +18,18 @@ def test_generate_deterministic_and_split() -> None:
         assert set(r["task"]["context"]["lookup"]) >= {"sample_id", "temperature", "concentration", "method"}
 
 
+def test_hard_tasks_have_decoys_and_arithmetic() -> None:
+    recs = generate(seed=7, n_total=60, n_train=48, n_max=4, difficulty="hard")
+    texts = " ".join(r["task"]["context"]["notebook_text"] for r in recs)
+    assert "diluted 1:" in texts and "correction" in texts and "Pre-incubated" in texts
+    assert "kDa" in texts and "Run as a series" in texts
+    assert all("storage_temperature" in r["task"]["context"]["lookup"] for r in recs)
+    easy = generate(seed=7, n_total=60, n_train=48, n_max=4, difficulty="easy")
+    assert all("storage_temperature" not in r["task"]["context"]["lookup"] for r in easy)
+
+
 def test_store_loads_shipped_tasks() -> None:
-    store = TaskStore(Path("env/tasks/toy_v1.jsonl"))
+    store = TaskStore(Path("env/tasks/toy_v2.jsonl"))
     assert len(store) == 200
     assert len(store.list(split="train")) == 160
     assert len(store.list(split="heldout")) == 40
