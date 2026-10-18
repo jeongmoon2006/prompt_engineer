@@ -1,0 +1,55 @@
+# Three services on one private network. Containers talk only over HTTP (§1).
+# CPU-only by default; add -f docker-compose.gpu.yml (make up GPU=1) to give
+# the orchestrator the host GPU.
+x-common: &common
+  restart: unless-stopped
+  env_file:
+    - path: .env
+      required: false
+  networks: [rlpo]
+
+services:
+  orchestrator:
+    <<: *common
+    build: { context: ., dockerfile: orchestrator/Dockerfile }
+    environment:
+      PORT: "8000"
+      HARNESS_URL: http://harness:8001
+      ENV_URL: http://env:8002
+    ports: ["8000:8000"]
+    volumes:
+      - ./experiments:/app/experiments
+      - ./orchestrator/config.yaml:/app/orchestrator/config.yaml:ro
+    depends_on:
+      harness: { condition: service_healthy }
+      env: { condition: service_healthy }
+    healthcheck: &hc
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:' + __import__('os').environ['PORT'] + '/health', timeout=2).status == 200 else 1)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  harness:
+    <<: *common
+    build: { context: ., dockerfile: harness/Dockerfile }
+    environment:
+      PORT: "8001"
+    ports: ["8001:8001"]
+    volumes:
+      - ./harness/prompts:/app/harness/prompts:ro
+    healthcheck: *hc
+
+  env:
+    <<: *common
+    build: { context: ., dockerfile: env/Dockerfile }
+    environment:
+      PORT: "8002"
+    ports: ["8002:8002"]
+    volumes:
+      - ./env/tasks:/app/env/tasks:ro
+      - ./env/config.yaml:/app/env/config.yaml:ro
+    healthcheck: *hc
+
+networks:
+  rlpo: {}

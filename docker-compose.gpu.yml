@@ -1,0 +1,11 @@
+# Overlay: expose the host NVIDIA GPU to the orchestrator only.
+# Requires the NVIDIA Container Toolkit on the host.
+services:
+  orchestrator:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
