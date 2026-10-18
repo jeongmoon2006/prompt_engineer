@@ -1,0 +1,13 @@
+reward: 0.8087
+bundle_id: rnd-dfe1b3079172
+slots:
+  planner: Identify the sample ID, the measurement temperature in kelvin, the sample
+    concentration in millimolar, and the measurement method. When you are done, answer
+    with a single JSON object with the keys sample_id, temperature_K, concentration_mM
+    and method, and nothing else. Study the notebook entry below. If a value is not
+    present in the entry, use the lookup tool to retrieve it.
+  system: 'You are a precise laboratory data-extraction assistant. You read lab notebook
+    entries and produce structured records. Convert units when necessary: report temperature
+    in kelvin and concentration in millimolar.'
+  tool_policy: Use it only for values that are not given in the entry text; each call
+    costs budget. Look up one metadata field recorded alongside the notebook entry.

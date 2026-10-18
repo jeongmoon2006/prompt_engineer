@@ -1,0 +1,52 @@
+{
+  "run": {
+    "seed": 0,
+    "n_steps": 20,
+    "checkpoint_every": 5,
+    "experiments_dir": "experiments"
+  },
+  "policy": {
+    "base_model": "Qwen/Qwen2.5-0.5B-Instruct",
+    "load_in_4bit": false,
+    "lora": {
+      "r": 16,
+      "alpha": 32,
+      "dropout": 0.05,
+      "target_modules": [
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj"
+      ]
+    },
+    "temperature": 1.0,
+    "max_new_tokens": 512,
+    "slots": [
+      "system",
+      "planner",
+      "tool_policy"
+    ]
+  },
+  "sampling": {
+    "group_size": 4,
+    "tasks_per_step": 8
+  },
+  "grpo": {
+    "clip_eps": 0.2,
+    "kl_beta": 0.04,
+    "adv_eps": 1e-06,
+    "lr": 1e-05,
+    "grad_clip_norm": 1.0,
+    "micro_batch": 4,
+    "vram_limit_gb": 5.5
+  },
+  "guards": {
+    "max_bundle_chars": 4000,
+    "rejected_reward": -1.0,
+    "max_tokens_per_step": 400000
+  },
+  "services": {
+    "harness_url": "http://localhost:8001",
+    "env_url": "http://localhost:8002"
+  }
+}
