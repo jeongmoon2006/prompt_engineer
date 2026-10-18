@@ -108,7 +108,8 @@ class LLMClient:
         n_assistant = sum(1 for m in messages if m["role"] == "assistant")
         approx_in = sum(len(json.dumps(m, default=str)) for m in messages) // 4
         if n_assistant == 0 and tools:
-            calls = [{"id": "toolu_mock_1", "name": tools[0]["name"], "input": {"field": "temperature"}}]
+            arg = {"field": "temperature"} if tools[0]["name"] == "lookup" else {"expression": "2+2"}
+            calls = [{"id": "toolu_mock_1", "name": tools[0]["name"], "input": arg}]
             content = [{"type": "tool_use", **c} for c in calls]
             return LLMResponse(content, "", calls, "tool_use", None, approx_in, 20, 1.0)
         # Crude extraction from whatever text is in the conversation (not an oracle).

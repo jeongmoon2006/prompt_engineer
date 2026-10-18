@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Query
 
-from harness.harness import Harness
+from harness.harness import DEFAULT_DOMAIN, Harness
 from shared.schemas import HealthResponse, RunBatchRequest, RunBatchResponse
 
 SERVICE = "agent-harness"
@@ -26,9 +26,12 @@ async def health() -> HealthResponse:
 
 
 @app.get("/prompts")
-async def prompts() -> dict[str, str]:
-    """Baseline (hand-written) prompt slots, for optimizers to start from."""
-    return get_harness().baseline
+async def prompts(domain: str = Query(default=DEFAULT_DOMAIN)) -> dict[str, str]:
+    """Baseline (hand-written) prompt slots for a domain, for optimizers to start from."""
+    h = get_harness()
+    if domain not in h.baselines:
+        raise HTTPException(status_code=404, detail=f"unknown domain {domain!r}; have {sorted(h.baselines)}")
+    return h.baselines[domain]
 
 
 @app.post("/run_batch", response_model=RunBatchResponse)

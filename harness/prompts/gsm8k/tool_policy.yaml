@@ -1,0 +1,5 @@
+# Prompt slot p^(3): description of the `calculator` tool as shown to the model.
+slot: tool_policy
+text: |
+  Evaluate one arithmetic expression (numbers, + - * / and parentheses) and return the
+  result. Use it for arithmetic you cannot do reliably in your head; each call costs budget.

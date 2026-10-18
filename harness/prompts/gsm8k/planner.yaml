@@ -1,0 +1,6 @@
+# Prompt slot p^(2): planning instruction placed in the user turn before the problem.
+slot: planner
+text: |
+  Solve the word problem below. Work through it step by step. Use the calculator tool
+  for any arithmetic you are not certain about. When you are done, respond with a single
+  JSON object with the key answer holding the final number, and nothing else.
