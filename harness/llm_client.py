@@ -38,6 +38,7 @@ class LLMConfig:
     provider: str = "anthropic"
     model: str = "claude-haiku-5-5"
     effort: str = "low"
+    thinking: str = "disabled"  # adaptive | disabled
     max_tokens: int = 1024
     max_retries: int = 5
     timeout_s: float = 60.0
@@ -49,6 +50,7 @@ class LLMConfig:
             provider=os.environ.get("HARNESS_PROVIDER", defaults.get("provider", "anthropic")),
             model=os.environ.get("HARNESS_MODEL", defaults.get("model", "claude-haiku-5-5")),
             effort=defaults.get("effort", "low"),
+            thinking=os.environ.get("HARNESS_THINKING", defaults.get("thinking", "disabled")),
             max_tokens=int(defaults.get("max_tokens", 1024)),
             max_retries=int(defaults.get("max_retries", 5)),
             timeout_s=float(defaults.get("timeout_s", 60)),
@@ -78,7 +80,9 @@ class LLMClient:
             tools=tools,
             tool_choice={"type": "auto"},
             output_config={"effort": self.cfg.effort},
-            # Haiku 5.5: no temperature/top_p (non-default values are rejected); thinking is adaptive.
+            # "disabled" is accepted at effort <= high on Haiku 5.5; otherwise adaptive (the default).
+            thinking={"type": "disabled"} if self.cfg.thinking == "disabled" else {"type": "adaptive"},
+            # Haiku 5.5: no temperature/top_p (non-default values are rejected).
         )
         latency = (time.perf_counter() - t0) * 1000
         text = "".join(b.text for b in resp.content if b.type == "text")
