@@ -1,0 +1,13 @@
+# agent-harness configuration. Model/provider/key come from the environment (.env).
+model_defaults:
+  provider: anthropic           # anthropic | mock   (env HARNESS_PROVIDER overrides)
+  model: claude-haiku-5-5       # env HARNESS_MODEL overrides
+  effort: low                   # Haiku 5.5: thinking is adaptive; effort is the depth lever
+  max_tokens: 1024              # per API call; leaves room for thinking + the JSON answer
+  max_retries: 5                # SDK backoff on 429/5xx/connection errors
+  timeout_s: 60
+loop:
+  max_turns: 6                  # API calls per trajectory
+  token_budget: 4000            # hard cap on total tokens per trajectory
+  max_concurrency: 8            # env HARNESS_MAX_CONCURRENCY overrides
+slots: [system, planner, tool_policy]

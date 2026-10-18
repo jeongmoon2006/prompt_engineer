@@ -1,0 +1,8 @@
+# Prompt slot p^(2): planning instruction placed in the user turn before the notebook entry.
+slot: planner
+text: |
+  Read the notebook entry below. Identify the sample ID, the measurement temperature
+  in kelvin, the sample concentration in millimolar, and the measurement method.
+  If a value is not stated in the entry, use the lookup tool to retrieve it.
+  When you are done, respond with a single JSON object with the keys sample_id,
+  temperature_K, concentration_mM and method, and nothing else.

@@ -1,0 +1,5 @@
+# Prompt slot p^(3): description of the `lookup` tool as shown to the model.
+slot: tool_policy
+text: |
+  Look up one metadata field recorded alongside the notebook entry. Use it only for
+  values that are not stated in the entry text; each call costs budget.
