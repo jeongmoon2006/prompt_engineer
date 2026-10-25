@@ -1,76 +1,75 @@
 # rl-prompt-opt
 
-RL-driven (GRPO) prompt optimization for a frozen agent harness. Three containers:
-`orchestrator` (meta-policy + GRPO, GPU), `harness` (agent loop, remote model API),
-`env` (deterministic verifiers → scalar reward). See `WORK_INSTRUCTIONS.md` for the plan.
+Prompt optimization with reinforcement learning (GRPO) for an agent whose model stays frozen.
 
-## Run
+Three services, talking only over HTTP:
 
-```bash
-cp .env.example .env            # fill in an API key
-make smoke                      # docker: build, start, curl /health x3
-make smoke GPU=1                # same, orchestrator gets the host GPU
-make smoke-local                # no docker: uvicorn from .venv (needs `uv`)
-make test                       # pytest (offline; the harness uses HARNESS_PROVIDER=mock in tests)
-make e2e                        # live: 1 task x G=4 through Claude Haiku 5.5 -> rewards
-make tasks                      # regenerate env/tasks/toy_v2.jsonl (seeded)
-```
+| Service | Port | Role | Trained? |
+|---|---|---|---|
+| `orchestrator/` | 8000 | Meta-policy (Qwen2.5-0.5B-Instruct + LoRA) writes prompt bundles; GRPO updates it | yes |
+| `harness/` | 8001 | Agent loop on Claude Haiku 5.5 with one tool; prompt slots injected per run | no |
+| `env/` | 8002 | Deterministic verifiers turn a trace into a scalar reward | no |
 
-Training (Phase 2+) — the orchestrator needs harness + env reachable (`make up`, or `make serve-local` without docker):
+A prompt bundle has three slots: `system`, `planner` (user-turn instruction), `tool_policy` (tool description).
+Reward = 0.4 correctness + 0.3 format + 0.1 tool efficiency + 0.2 cost (weights in `env/config.yaml`).
+`shared/schemas.py` holds the pydantic contracts; it is the only module every service imports.
+
+## Setup
 
 ```bash
-make train RUN=toy-grpo STEPS=20                 # GRPO meta-policy (Qwen2.5-0.5B + LoRA), toy domain
-make train RUN=toy-random POLICY=random          # B1: random-perturbation keep-best, same budget
-make train RUN=gsm8k-grpo DOMAIN=gsm8k           # second domain (python -m env.tasks.hf_gsm8k first)
-make train RUN=toy-grpo-b RESUME=experiments/toy-grpo/checkpoints/step0020   # start from a saved LoRA adapter
-make analyze RUN=toy-grpo                        # reward / KL / rejection curves -> experiments/analysis/
-make analyze COMPARE='{"toy": {"B1": "toy-random", "B2": "toy-grpo"}}'   # B0/B1/B2 table + figure
+cp .env.example .env        # set ANTHROPIC_API_KEY
+make test                   # offline tests (mock harness provider); creates .venv with uv
+make smoke-local            # start all three services without docker and check /health
 ```
 
-Hardware notes (GTX 1660 Super, 6 GB, no bf16): fp32 LoRA master weights + fp16 autocast with GradScaler,
-gradient checkpointing, micro-batched accumulation with an automatic halving above 5.5 GB peak VRAM.
-Smoke tests run on CPU; set `CUDA_VISIBLE_DEVICES=` to force CPU.
+Docker: `make smoke` (add `GPU=1` for the orchestrator GPU). The compose files are written but untested
+on this machine. Training on the host needs the ML extra: `uv sync --extra dev --extra ml`.
 
-Status notes: the docker compose path is written but unverified (no Docker on the development WSL2 host; `make smoke-local`
-is the tested path). `make test` is offline except that `tests/test_policy.py` needs the Qwen2.5 tokenizer in the Hugging
-Face cache once (it skips if the download fails).
+## Train and analyze
 
-Then drive one iteration of the loop: `curl -X POST localhost:8000/step -H 'content-type: application/json' -d '{"n_tasks": 2}'`.
-Every run writes `experiments/<run_id>/` with frozen configs (orchestrator config, baseline prompts, and the harness and
-env `/config` responses, i.e. model settings and reward weights), `metrics.jsonl`, `best_bundle.yaml` and
-`traces/trajectories.jsonl` (one line per task x bundle x trace x reward).
+```bash
+make serve-local                                   # harness + env in the background
+make train RUN=toy-grpo STEPS=20                   # B2: GRPO meta-policy, toy domain
+make train RUN=toy-random POLICY=random            # B1: random perturbation, keep-best
+make train RUN=gsm8k-grpo DOMAIN=gsm8k             # second domain (run python -m env.tasks.hf_gsm8k once)
+make train RUN=toy-grpo-b RESUME=experiments/toy-grpo/checkpoints/step0020
+make analyze RUN=toy-grpo                          # reward / KL / rejection curves
+make analyze RUN=toy-grpo COMPARE='{"toy": {"B1": "toy-random", "B2": "toy-grpo"}}'   # + B0/B1/B2 table and figure
+make stop-local
+```
 
-Best bundle: each sampled bundle runs on one training task, so the trainer re-scores every step's top candidate on a fixed
-16-task selection slice of the train split and keeps the best slice mean (`select` in `orchestrator/config.yaml`; `n_tasks: 0`
-falls back to single-trajectory keep-best). `metrics.jsonl` splits harness calls and tokens into `train` (the rollouts the
-optimizer learns from) and `eval` (selection slice + held-out). Restarting with the same `RUN_ID` continues the step counter.
+One step = 8 tasks x 8 sampled bundles = 64 harness runs. Each run writes `experiments/<run_id>/`:
 
-Ports: orchestrator 8000, harness 8001, env 8002.
+- `config/` frozen orchestrator config, baseline prompts, harness and env `/config` responses
+- `metrics.jsonl` one line per step plus held-out evaluations; harness calls and tokens are split into `train` and `eval`
+- `best_bundle.yaml` and `best_bundle/*.yaml` the selected prompts, drop-in for `harness/prompts/<domain>/`
+- `traces/` and `checkpoints/` (gitignored)
 
-## Layout
-- `shared/schemas.py` — the only module every container imports (pydantic contracts).
-- `orchestrator/`, `harness/`, `env/` — one service each; never import across them.
-- `experiments/<run_id>/` — per-run configs, metrics, traces (traces gitignored).
+Best bundle selection: each sampled bundle runs on one task, so the top candidate of every step is re-scored on a
+fixed 16-task slice of the train split and the best slice mean wins (`select` in `orchestrator/config.yaml`).
 
-## Toy domain (Phase 1)
-Structured extraction from synthetic lab-notebook entries (`env/tasks/generate.py`). The agent
-may call `lookup(field)` at most 4 times and must emit `{sample_id, temperature_K, concentration_mM, method}`.
-Prompt slots: `system` (system prompt), `planner` (user-turn instruction), `tool_policy` (the tool's description).
-Reward = 0.4 correctness + 0.3 format + 0.1 tool_efficiency + 0.2 cost (weights in `env/config.yaml`;
-rebalanced from the plan's 0.6/0.15/0.15/0.10 because Haiku 5.5 saturates correctness on this domain).
-Harness model: `claude-haiku-5-5` via the Anthropic SDK (`HARNESS_MODEL` in `.env`); `HARNESS_PROVIDER=mock` runs offline.
+Hardware: tuned for a 6 GB GTX 1660 Super (fp32 LoRA weights, fp16 autocast, gradient checkpointing,
+micro-batch auto-halving). Set `CUDA_VISIBLE_DEVICES=` to force CPU.
 
 ## Domains
-A domain = a task file served by the environment (`env/config.yaml: domains`), a correctness verifier
-(`env/reward.py` dispatch), baseline prompts under `harness/prompts/<domain>/` and a tool executor in
-`harness/tools.py`. Shipped: `toy` (lab-notebook extraction, `lookup` tool) and `gsm8k` (Hugging Face GSM8K,
-`calculator` tool). Per domain, `env/config.yaml` names the correctness verifier (`fields` | `numeric_answer`) and the
-fields the format verifier type-checks as numbers. The orchestrator never changes; it reads `/domain_info` to build the meta-prompt.
 
-Adding an optimizer: not yet formalized. Phase 4 will introduce the `Optimizer` protocol (`propose` / `update`); today the
-trainer branches on `policy.kind` (`grpo` | `random`), so a new optimizer means a new branch in `orchestrator/trainer.py`.
+| Domain | Tasks | Tool | Correctness |
+|---|---|---|---|
+| `toy` | 200 synthetic lab-notebook entries (`env/tasks/generate.py`), 160 train / 40 held-out | `lookup(field)`, max 4 | per-field match, partial credit on numbers |
+| `gsm8k` | 300 train / 100 held-out from Hugging Face `openai/gsm8k` | `calculator(expression)`, max 6 | exact numeric match |
 
-## Results (Phase 2/3)
-See `experiments/REPORT_phase2_3.md` for the GRPO training curves, the B0/B1/B2 comparison on both
-domains with token cost, the Checkpoint 2 diagnosis, and the list of deviations from `WORK_INSTRUCTIONS.md`.
-Figures and the comparison table are in `experiments/analysis/`.
+A domain is a task file plus a block in `env/config.yaml` (fields, numeric fields, verifier), baseline prompts under
+`harness/prompts/<domain>/`, and a tool executor in `harness/tools.py`. The orchestrator reads `/domain_info` and
+never changes per domain.
+
+## Results
+
+See `experiments/REPORT_phase2_3.md`. Short version: on both domains Haiku solves the task almost regardless of
+prompt wording, so neither GRPO nor random search beat the baseline prompt beyond held-out noise, and GRPO mostly
+learned to emit well-formed, short prompts. Figures and the comparison table are in `experiments/analysis/`.
+
+## Status
+
+Phases 0 to 3 of `WORK_INSTRUCTIONS.md` are done. Not yet built: the `Optimizer` protocol (Phase 4; the trainer
+branches on `policy.kind`) and the conditioning study (Phase 5). The baseline prompts were written by Claude Code,
+not hand-tuned by a person.
