@@ -10,7 +10,7 @@ dependencies = [
     "pydantic>=2.7",
     "pyyaml>=6.0",
     "torch>=2.4",
-    "transformers>=4.44",
+    "transformers>=4.50",
     "peft>=0.12",
     "accelerate>=0.33",
 ]

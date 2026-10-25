@@ -11,7 +11,7 @@ import os
 from fastapi import FastAPI, HTTPException
 
 from orchestrator.clients import EnvClient, HarnessClient
-from orchestrator.trainer import Trainer, load_config
+from orchestrator.trainer import CostGuardExceeded, Trainer, load_config
 from shared.schemas import HealthResponse, StepRequest, StepResult
 
 SERVICE = "rl-orchestrator"
@@ -53,5 +53,5 @@ async def status() -> dict:
 async def step(req: StepRequest) -> StepResult:
     try:
         return await get_trainer().step(req.n_tasks)
-    except RuntimeError as e:  # cost guard
+    except CostGuardExceeded as e:
         raise HTTPException(status_code=409, detail=str(e))

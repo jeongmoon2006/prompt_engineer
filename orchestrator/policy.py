@@ -32,9 +32,9 @@ Here are the current prompts:
 
 Write an improved set of prompts for all {k} slots. Keep each slot concise. Output exactly one block per slot using the same tags, in the same order, and nothing else."""
 
-SLOT_DESCRIPTIONS = {
+SLOT_DESCRIPTIONS = {  # domain-neutral: the same meta-prompt serves every domain served by /domain_info
     "system": "system: the agent's system prompt",
-    "planner": "planner: instruction placed in the user turn before the notebook entry",
+    "planner": "planner: instruction placed in the user turn before the task input",
     "tool_policy": "tool_policy: the description of the tool shown to the agent",
 }
 
@@ -48,8 +48,10 @@ class RejectInfo:
     reason: str
 
 
-def parse_bundle(text: str, slot_names: list[str], max_chars: int) -> PromptBundle | RejectInfo:
-    """Parse `<slot>...</slot>` blocks. Any malformation -> RejectInfo (reward -1 downstream)."""
+def parse_bundle(text: str, slot_names: list[str], max_chars: int, max_total_chars: int | None = None) -> PromptBundle | RejectInfo:
+    """Parse `<slot>...</slot>` blocks. Any malformation -> RejectInfo (reward -1 downstream).
+
+    max_chars caps each slot; max_total_chars (guards.max_bundle_chars) caps the sum over slots."""
     try:
         text.encode("utf-8")
     except UnicodeEncodeError:
@@ -69,6 +71,9 @@ def parse_bundle(text: str, slot_names: list[str], max_chars: int) -> PromptBund
         if re.search(r"</?\w+>", body):  # nested / stray tags inside a slot
             return RejectInfo(f"stray_tag_in_{name}")
         slots[name] = body
+    total = sum(len(v) for v in slots.values())
+    if max_total_chars is not None and total > max_total_chars:
+        return RejectInfo(f"too_long_bundle={total}")
     leftover = re.sub(r"<(\w+)>.*?</\1>", "", text, flags=re.DOTALL).strip()
     if len(leftover) > 40:  # tolerate a few stray chars, reject chatter around the blocks
         return RejectInfo("extra_text")
@@ -169,7 +174,8 @@ class MetaPolicy:
             # cut at the first EOS (kept, so the policy learns to stop) or strip trailing padding
             ids = _strip_padding(row, self.tokenizer.pad_token_id, self.tokenizer.eos_token_id)
             text = self.tokenizer.decode(ids, skip_special_tokens=True)
-            parsed = parse_bundle(text, self.slot_names, int(self.cfg.get("max_slot_chars", 1500)))
+            parsed = parse_bundle(text, self.slot_names, int(self.cfg.get("max_slot_chars", 1500)),
+                                  int(self.cfg["max_bundle_chars"]) if self.cfg.get("max_bundle_chars") else None)
             results.append({
                 "text": text, "completion_ids": ids,
                 "bundle": parsed if isinstance(parsed, PromptBundle) else None,

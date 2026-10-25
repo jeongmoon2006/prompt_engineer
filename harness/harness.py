@@ -12,7 +12,7 @@ served locally from task.context["lookup"]; the model never sees ground truth.
 from __future__ import annotations
 
 import asyncio
-import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -57,7 +57,6 @@ class Harness:
         self.cfg = cfg or load_config()
         self.client = client or LLMClient(LLMConfig.from_env(self.cfg["model_defaults"]))
         self.baselines: dict[str, dict[str, str]] = {d: load_baseline_prompts(d) for d in list_domains()}
-        import os
         conc = int(os.environ.get("HARNESS_MAX_CONCURRENCY", self.cfg["loop"]["max_concurrency"]))
         self._sem = asyncio.Semaphore(conc)
 

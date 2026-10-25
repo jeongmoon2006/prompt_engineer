@@ -11,7 +11,10 @@ policy:
   base_dtype: float32          # fp32 master weights + fp16 autocast (Turing: no bf16). float16 to save ~1 GB.
   load_in_4bit: false          # opt-in QLoRA (bitsandbytes); required for 1.5B on 6 GB VRAM
   gradient_checkpointing: true
-  lora: { r: 16, alpha: 32, dropout: 0.05, target_modules: [q_proj, k_proj, v_proj, o_proj] }
+  # dropout 0: samples are drawn in eval mode and log-probs computed in train mode; any dropout makes
+  # logp_old (= logp_new.detach(), mu = 1) differ from the sampling distribution.
+  lora: { r: 16, alpha: 32, dropout: 0.0, target_modules: [q_proj, k_proj, v_proj, o_proj] }
+  adapter_path: null           # LoRA checkpoint dir to load before training (make train RESUME=...)
   temperature: 1.0
   max_new_tokens: 320          # baseline bundle is ~170 tokens; degenerate samples otherwise run to the cap
   sample_chunk: 32             # completions per generate call (KV-cache memory bound)
@@ -28,12 +31,16 @@ grpo:
   grad_clip_norm: 1.0
   micro_batch: 4               # trajectories per forward/backward; auto-halved above vram_limit_gb or on OOM
   vram_limit_gb: 5.5
+select:                        # best-bundle selection (see trainer.py docstring)
+  n_tasks: 16                  # fixed slice of *train* tasks the step's top candidates are re-scored on; 0 = single-trajectory keep-best
+  per_step: 1                  # candidates re-scored per step (cost: per_step x n_tasks harness calls)
+  seed: 4242
 eval:
   every: 2                     # held-out evaluation every N steps (and at step 0)
   n_tasks: 16                  # held-out tasks used for the curve (fixed seed)
   seed: 777
 guards:
-  max_bundle_chars: 4000
+  max_bundle_chars: 4000       # total characters over all slots (per-slot cap: policy.max_slot_chars)
   rejected_reward: -1.0
   max_tokens_per_step: 400000  # hard cost cap; abort the run with a clear message if exceeded
 services:

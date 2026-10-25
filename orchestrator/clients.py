@@ -7,7 +7,16 @@ from typing import Any
 
 import httpx
 
-from shared.schemas import EvaluateRequest, EvaluateResponse, PromptBundle, Reward, RunBatchRequest, RunBatchResponse, Task, Trace
+from shared.schemas import (
+    EvaluateRequest,
+    EvaluateResponse,
+    PromptBundle,
+    Reward,
+    RunBatchRequest,
+    RunBatchResponse,
+    Task,
+    Trace,
+)
 
 
 class ServiceClient:
@@ -43,6 +52,9 @@ class ServiceClient:
 
 
 class HarnessClient(ServiceClient):
+    async def config(self) -> dict[str, Any]:
+        return (await self._request("GET", "/config")).json()
+
     async def baseline_prompts(self, domain: str = "toy") -> dict[str, str]:
         return (await self._request("GET", "/prompts", params={"domain": domain})).json()
 
@@ -52,6 +64,9 @@ class HarnessClient(ServiceClient):
 
 
 class EnvClient(ServiceClient):
+    async def config(self) -> dict[str, Any]:
+        return (await self._request("GET", "/config")).json()
+
     async def tasks(self, domain: str | None = None, split: str | None = None, n: int | None = None, seed: int | None = None) -> list[Task]:
         params = {k: v for k, v in {"domain": domain, "split": split, "n": n, "seed": seed}.items() if v is not None}
         return [Task.model_validate(t) for t in (await self._request("GET", "/tasks", params=params)).json()]

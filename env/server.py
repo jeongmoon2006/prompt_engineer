@@ -1,4 +1,4 @@
-"""staging-env HTTP server: POST /evaluate, GET /tasks, GET /domain_info, GET /health."""
+"""staging-env HTTP server: POST /evaluate, GET /tasks, GET /domain_info, GET /config, GET /health."""
 
 from __future__ import annotations
 
@@ -32,6 +32,12 @@ async def domain_info(domain: str = Query(default="toy")) -> dict:
     n_tasks = len(STORE.list(domain=domain))
     return {"domain": domain, "fields": spec["fields"], "n_max": spec["n_max_tool_calls"],
             "description": spec["description"], "n_tasks": n_tasks, "loaded": n_tasks > 0}
+
+
+@app.get("/config")
+async def config() -> dict:
+    """Reward weights and domain specs, so an optimizer can freeze them into its run directory."""
+    return {"reward": CFG["reward"], "domains": CFG["domains"]}
 
 
 @app.get("/tasks", response_model=list[Task])

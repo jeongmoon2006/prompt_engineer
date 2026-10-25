@@ -37,6 +37,12 @@ def test_evaluate_rejects_unknown_or_mismatched() -> None:
     assert c.post("/evaluate", json={"task": task, "traces": [tr2]}).status_code == 422
 
 
+def test_config_endpoint_exposes_reward_weights() -> None:
+    conf = c.get("/config").json()
+    assert set(conf["reward"]["weights"]) == {"correctness", "format", "tool_efficiency", "cost"}
+    assert conf["domains"]["gsm8k"]["verifier"] == "numeric_answer" and conf["domains"]["toy"]["verifier"] == "fields"
+
+
 def test_domain_info_and_domain_filter() -> None:
     info = c.get("/domain_info", params={"domain": "toy"}).json()
     assert info["fields"] == ["sample_id", "temperature_K", "concentration_mM", "method"] and info["n_max"] == 4 and info["loaded"]

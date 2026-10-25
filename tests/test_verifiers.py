@@ -2,8 +2,6 @@
 
 import math
 
-import pytest
-
 from env.reward import compute_reward, load_config
 from env.verifiers.correctness import score_correctness
 from env.verifiers.cost import score_cost
@@ -35,6 +33,10 @@ def test_format_scores() -> None:
     assert score_format(GOOD.replace("}", ', "extra": 1}'), FIELDS)[0] == 0.5
     assert score_format('{"sample_id": "S", "temperature_K": "hot", "concentration_mM": 1, "method": "x"}', FIELDS)[0] == 0.5
     assert score_format("no json here", FIELDS)[0] == 0.0
+    # numeric type check follows the caller's field list, not the toy constants
+    assert score_format('{"answer": "forty-two"}', ["answer"])[0] == 1.0
+    assert score_format('{"answer": "forty-two"}', ["answer"], numeric_fields=["answer"])[0] == 0.5
+    assert score_format('{"answer": "42"}', ["answer"], numeric_fields=["answer"])[0] == 1.0
 
 
 def test_correctness_exact_and_partial() -> None:
@@ -116,3 +118,6 @@ def test_gsm8k_numeric_answer_and_dispatch() -> None:
     tr = Trace(task_id="g", bundle_id="b", steps=[], final_output='{"answer": 42}', total_tokens=400)
     r = compute_reward(t, tr, {"answer": 42.0}, cfg)
     assert r.components["correctness"] == 1.0 and r.components["format"] == 1.0 and r.components["tool_efficiency"] == 1.0
+    tr.final_output = '{"answer": "forty-two"}'
+    r = compute_reward(t, tr, {"answer": 42.0}, cfg)
+    assert r.components["format"] == 0.5 and r.components["correctness"] == 0.0   # gsm8k: answer must be numeric

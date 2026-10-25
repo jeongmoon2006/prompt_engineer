@@ -70,6 +70,8 @@ def test_server_prompts_and_run_batch() -> None:
     assert set(c.get("/prompts").json()) == {"system", "planner", "tool_policy"}
     assert set(c.get("/prompts", params={"domain": "gsm8k"}).json()) == {"system", "planner", "tool_policy"}
     assert c.get("/prompts", params={"domain": "nope"}).status_code == 404
+    conf = c.get("/config").json()
+    assert conf["model"]["provider"] == "mock" and "token_budget" in conf["loop"] and "api_key" not in str(conf).lower()
     r = c.post("/run_batch", json={"task": task().model_dump(), "bundles": [PromptBundle(bundle_id="b", slots={}).model_dump()]})
     assert r.status_code == 200 and len(r.json()["traces"]) == 1
 
@@ -91,7 +93,7 @@ def test_calculator_tool_and_safe_eval() -> None:
     from harness.tools import execute_tool, safe_eval
     assert safe_eval("2 + 3 * (4 - 1)") == 11
     assert safe_eval("-7 / 2") == -3.5
-    for bad in ["__import__('os')", "a + 1", "2 ** 1000", "(1).real"]:
+    for bad in ["__import__('os')", "a + 1", "2 ** 1000", "(1).real", "((((2**64)**64)**64)**64)**64", "10**30 * 10**30"]:
         with pytest.raises((ValueError, SyntaxError)):
             safe_eval(bad)
     t = Task(task_id="g", description="d", context={"domain": "gsm8k", "input_text": "q", "n_max_tool_calls": 6,

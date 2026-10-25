@@ -6,8 +6,9 @@
     "heldout_b0": 0.5550701875,
     "heldout_best": 0.57545525,
     "heldout_policy": 0.5544625,
-    "tokens_total": 1824642,
-    "harness_calls": 1004,
+    "train_tokens": 1824642,
+    "train_harness_calls": 757,
+    "all_harness_calls": 1004,
     "plot": "experiments/analysis/toy-grpo_curves.png"
   },
   {
@@ -17,8 +18,33 @@
     "heldout_b0": 0.67104375,
     "heldout_best": 0.6564383125,
     "heldout_policy": 0.1004634375,
-    "tokens_total": 1118682,
-    "harness_calls": 1001,
+    "train_tokens": 1118682,
+    "train_harness_calls": 743,
+    "all_harness_calls": 1001,
     "plot": "experiments/analysis/gsm8k-grpo_curves.png"
+  },
+  {
+    "run": "toy-random",
+    "steps": 20,
+    "final_train": 0.5588140625,
+    "heldout_b0": 0.55973125,
+    "heldout_best": 0.562228125,
+    "heldout_policy": 0.560953125,
+    "train_tokens": 3175914,
+    "train_harness_calls": 1280,
+    "all_harness_calls": 1600,
+    "plot": "experiments/analysis/toy-random_curves.png"
+  },
+  {
+    "run": "gsm8k-random",
+    "steps": 20,
+    "final_train": 0.682162203125,
+    "heldout_b0": 0.6702915625,
+    "heldout_best": 0.686109375,
+    "heldout_policy": 0.6746186875,
+    "train_tokens": 1203990,
+    "train_harness_calls": 1280,
+    "all_harness_calls": 1600,
+    "plot": "experiments/analysis/gsm8k-random_curves.png"
   }
 ]

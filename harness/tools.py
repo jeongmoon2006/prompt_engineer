@@ -16,21 +16,30 @@ _OPS = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul, as
         ast.FloorDiv: operator.floordiv, ast.Mod: operator.mod, ast.Pow: operator.pow, ast.USub: operator.neg, ast.UAdd: operator.pos}
 
 
+MAX_ABS = 1e30  # bound on every intermediate value; nested powers would otherwise allocate GBs
+
+
 def safe_eval(expr: str) -> float:
     """Evaluate an arithmetic expression without exec/eval. Raises ValueError on anything else."""
     if len(expr) > 200:
         raise ValueError("expression too long")
     tree = ast.parse(expr.strip(), mode="eval")
 
+    def bounded(x: float) -> float:
+        if abs(x) > MAX_ABS:
+            raise ValueError("value too large")
+        return x
+
     def ev(node: ast.AST) -> float:
         if isinstance(node, ast.Expression):
             return ev(node.body)
         if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)) and not isinstance(node.value, bool):
-            return node.value
+            return bounded(node.value)
         if isinstance(node, ast.BinOp) and type(node.op) in _OPS:
-            if isinstance(node.op, ast.Pow) and abs(ev(node.right)) > 64:
+            left, right = ev(node.left), ev(node.right)
+            if isinstance(node.op, ast.Pow) and abs(right) > 64:
                 raise ValueError("exponent too large")
-            return _OPS[type(node.op)](ev(node.left), ev(node.right))
+            return bounded(_OPS[type(node.op)](left, right))
         if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
             return _OPS[type(node.op)](ev(node.operand))
         raise ValueError(f"unsupported syntax: {ast.dump(node)[:40]}")

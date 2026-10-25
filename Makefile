@@ -45,7 +45,8 @@ tasks: venv
 STEPS ?=
 POLICY ?=
 DOMAIN ?=
-TRAIN_ARGS := --run-id $(RUN) $(if $(STEPS),--steps $(STEPS)) $(if $(POLICY),--policy $(POLICY)) $(if $(DOMAIN),--domain $(DOMAIN))
+RESUME ?=
+TRAIN_ARGS := --run-id $(RUN) $(if $(STEPS),--steps $(STEPS)) $(if $(POLICY),--policy $(POLICY)) $(if $(DOMAIN),--domain $(DOMAIN)) $(if $(RESUME),--resume $(RESUME))
 train:
 	@if command -v docker >/dev/null 2>&1; then \
 	  $(COMPOSE) $(COMPOSE_FILES) exec orchestrator python -m orchestrator.trainer $(TRAIN_ARGS); \

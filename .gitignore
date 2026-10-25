@@ -1,13 +1,63 @@
+# ---- secrets: never commit credentials ----------------------------------------
 .env
-.venv/
-.run/
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.secret
+.secrets/
+credentials*.json
+service-account*.json
+.netrc
+.huggingface/
+.anthropic/
+
+# ---- python ------------------------------------------------------------------
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
+build/
+dist/
 .pytest_cache/
 .ruff_cache/
-# experiment artifacts (keep configs/metrics; never commit traces or weights)
-experiments/*/traces/
-experiments/*/checkpoints/
+.mypy_cache/
+.hypothesis/
+.coverage
+htmlcov/
+
+# ---- environments / tooling --------------------------------------------------
+.venv/
+venv/
+.python-version
+.idea/
+.vscode/
+.claude/
+*.swp
+
+# ---- local run state ---------------------------------------------------------
+.run/
+*.log
+*.pid
+
+# ---- model weights, caches, datasets -----------------------------------------
 *.safetensors
 *.bin
 *.pt
+*.pth
+*.ckpt
+*.gguf
+env/tasks/hf/*
+!env/tasks/hf/.gitignore
+models/
+
+# ---- experiment artifacts (keep configs, metrics, best bundles, analysis) -----
+experiments/*/traces/
+experiments/*/checkpoints/
+
+# ---- OS / sync clutter -------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+~$*
+*.tmp

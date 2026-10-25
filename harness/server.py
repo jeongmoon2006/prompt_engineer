@@ -1,6 +1,8 @@
-"""agent-harness HTTP server: POST /run_batch, GET /prompts, GET /health."""
+"""agent-harness HTTP server: POST /run_batch, GET /prompts, GET /config, GET /health."""
 
 from __future__ import annotations
+
+from dataclasses import asdict
 
 from fastapi import FastAPI, HTTPException, Query
 
@@ -32,6 +34,13 @@ async def prompts(domain: str = Query(default=DEFAULT_DOMAIN)) -> dict[str, str]
     if domain not in h.baselines:
         raise HTTPException(status_code=404, detail=f"unknown domain {domain!r}; have {sorted(h.baselines)}")
     return h.baselines[domain]
+
+
+@app.get("/config")
+async def config() -> dict:
+    """Effective model + loop settings (no secrets), so an optimizer can freeze them into its run directory."""
+    h = get_harness()
+    return {"model": asdict(h.client.cfg), "loop": h.cfg["loop"], "slots": h.cfg.get("slots", [])}
 
 
 @app.post("/run_batch", response_model=RunBatchResponse)

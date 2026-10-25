@@ -22,6 +22,7 @@ Training (Phase 2+) — the orchestrator needs harness + env reachable (`make up
 make train RUN=toy-grpo STEPS=20                 # GRPO meta-policy (Qwen2.5-0.5B + LoRA), toy domain
 make train RUN=toy-random POLICY=random          # B1: random-perturbation keep-best, same budget
 make train RUN=gsm8k-grpo DOMAIN=gsm8k           # second domain (python -m env.tasks.hf_gsm8k first)
+make train RUN=toy-grpo-b RESUME=experiments/toy-grpo/checkpoints/step0020   # start from a saved LoRA adapter
 make analyze RUN=toy-grpo                        # reward / KL / rejection curves -> experiments/analysis/
 make analyze COMPARE='{"toy": {"B1": "toy-random", "B2": "toy-grpo"}}'   # B0/B1/B2 table + figure
 ```
@@ -30,9 +31,19 @@ Hardware notes (GTX 1660 Super, 6 GB, no bf16): fp32 LoRA master weights + fp16 
 gradient checkpointing, micro-batched accumulation with an automatic halving above 5.5 GB peak VRAM.
 Smoke tests run on CPU; set `CUDA_VISIBLE_DEVICES=` to force CPU.
 
+Status notes: the docker compose path is written but unverified (no Docker on the development WSL2 host; `make smoke-local`
+is the tested path). `make test` is offline except that `tests/test_policy.py` needs the Qwen2.5 tokenizer in the Hugging
+Face cache once (it skips if the download fails).
+
 Then drive one iteration of the loop: `curl -X POST localhost:8000/step -H 'content-type: application/json' -d '{"n_tasks": 2}'`.
-Every run writes `experiments/<run_id>/` with frozen configs, `metrics.jsonl`, `best_bundle.yaml`
-and `traces/trajectories.jsonl` (one line per task x bundle x trace x reward).
+Every run writes `experiments/<run_id>/` with frozen configs (orchestrator config, baseline prompts, and the harness and
+env `/config` responses, i.e. model settings and reward weights), `metrics.jsonl`, `best_bundle.yaml` and
+`traces/trajectories.jsonl` (one line per task x bundle x trace x reward).
+
+Best bundle: each sampled bundle runs on one training task, so the trainer re-scores every step's top candidate on a fixed
+16-task selection slice of the train split and keeps the best slice mean (`select` in `orchestrator/config.yaml`; `n_tasks: 0`
+falls back to single-trajectory keep-best). `metrics.jsonl` splits harness calls and tokens into `train` (the rollouts the
+optimizer learns from) and `eval` (selection slice + held-out). Restarting with the same `RUN_ID` continues the step counter.
 
 Ports: orchestrator 8000, harness 8001, env 8002.
 
@@ -53,9 +64,11 @@ Harness model: `claude-haiku-5-5` via the Anthropic SDK (`HARNESS_MODEL` in `.en
 A domain = a task file served by the environment (`env/config.yaml: domains`), a correctness verifier
 (`env/reward.py` dispatch), baseline prompts under `harness/prompts/<domain>/` and a tool executor in
 `harness/tools.py`. Shipped: `toy` (lab-notebook extraction, `lookup` tool) and `gsm8k` (Hugging Face GSM8K,
-`calculator` tool). The orchestrator never changes; it reads `/domain_info` to build the meta-prompt.
+`calculator` tool). Per domain, `env/config.yaml` names the correctness verifier (`fields` | `numeric_answer`) and the
+fields the format verifier type-checks as numbers. The orchestrator never changes; it reads `/domain_info` to build the meta-prompt.
 
-Adding an optimizer: see Phase 4 (`Optimizer` protocol).
+Adding an optimizer: not yet formalized. Phase 4 will introduce the `Optimizer` protocol (`propose` / `update`); today the
+trainer branches on `policy.kind` (`grpo` | `random`), so a new optimizer means a new branch in `orchestrator/trainer.py`.
 
 ## Results (Phase 2/3)
 See `experiments/REPORT_phase2_3.md` for the GRPO training curves, the B0/B1/B2 comparison on both

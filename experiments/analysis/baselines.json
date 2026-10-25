@@ -13,7 +13,7 @@
     "heldout": 0.562228125,
     "heldout_policy_sample": 0.560953125,
     "opt_tokens": 3175914,
-    "opt_harness_calls": 1600
+    "opt_harness_calls": 1280
   },
   {
     "domain": "toy",
@@ -21,7 +21,7 @@
     "heldout": 0.57545525,
     "heldout_policy_sample": 0.5544625,
     "opt_tokens": 1824642,
-    "opt_harness_calls": 1004
+    "opt_harness_calls": 757
   },
   {
     "domain": "gsm8k",
@@ -37,7 +37,7 @@
     "heldout": 0.686109375,
     "heldout_policy_sample": 0.6746186875,
     "opt_tokens": 1203990,
-    "opt_harness_calls": 1600
+    "opt_harness_calls": 1280
   },
   {
     "domain": "gsm8k",
@@ -45,6 +45,6 @@
     "heldout": 0.6564383125,
     "heldout_policy_sample": 0.1004634375,
     "opt_tokens": 1118682,
-    "opt_harness_calls": 1001
+    "opt_harness_calls": 743
   }
 ]

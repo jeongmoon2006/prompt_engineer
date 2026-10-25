@@ -45,7 +45,7 @@ class LLMConfig:
     extra: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_env(cls, defaults: dict[str, Any]) -> "LLMConfig":
+    def from_env(cls, defaults: dict[str, Any]) -> LLMConfig:
         return cls(
             provider=os.environ.get("HARNESS_PROVIDER", defaults.get("provider", "anthropic")),
             model=os.environ.get("HARNESS_MODEL", defaults.get("model", "claude-haiku-5-5")),

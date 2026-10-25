@@ -6,7 +6,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from orchestrator.grpo import group_advantages, grpo_loss  # noqa: E402
+from orchestrator.grpo import group_advantages, grpo_loss
 
 
 def test_group_advantages_standardized() -> None:

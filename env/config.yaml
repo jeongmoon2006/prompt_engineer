@@ -11,6 +11,8 @@ domains:
   toy:
     file: toy_v2.jsonl
     fields: [sample_id, temperature_K, concentration_mM, method]
+    numeric_fields: [temperature_K, concentration_mM]   # format verifier: must be numbers
+    verifier: fields             # correctness: per-field match with partial numeric credit
     n_max_tool_calls: 4
     description: >-
       a short laboratory notebook entry; the agent extracts one JSON record with the fields
@@ -19,6 +21,8 @@ domains:
   gsm8k:
     file: gsm8k_v1.jsonl
     fields: [answer]
+    numeric_fields: [answer]
+    verifier: numeric_answer     # correctness: exact numeric match on the single field
     n_max_tool_calls: 6
     description: >-
       a grade-school math word problem (GSM8K); the agent must return one JSON record with the

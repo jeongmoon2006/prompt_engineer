@@ -16,7 +16,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.5", "python-dotenv>=1.0", "matplotlib>=3.8", "datasets>=2.20"]
 # Only needed to run the orchestrator's training code on the host (Phase 2+).
-ml = ["torch>=2.4,<2.7", "transformers>=4.44", "peft>=0.12", "accelerate>=0.33"]
+ml = ["torch>=2.4,<2.7", "transformers>=4.50", "peft>=0.12", "accelerate>=0.33"]
 
 [tool.uv]
 package = false

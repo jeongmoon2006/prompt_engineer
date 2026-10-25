@@ -6,8 +6,8 @@ torch = pytest.importorskip("torch")
 pytest.importorskip("peft")
 pytest.importorskip("transformers")
 
-from orchestrator.policy import MetaPolicy, RejectInfo, format_bundle_block, parse_bundle  # noqa: E402
-from shared.schemas import PromptBundle  # noqa: E402
+from orchestrator.policy import MetaPolicy, format_bundle_block, parse_bundle
+from shared.schemas import PromptBundle
 
 SLOTS = ["system", "planner", "tool_policy"]
 BASE = {"system": "Be careful.", "planner": "Read then answer.", "tool_policy": "Use lookup sparingly."}
@@ -25,6 +25,10 @@ def test_parse_bundle_roundtrip_and_guards() -> None:
     assert parse_bundle(text.replace("Be careful.", "a <b> c"), SLOTS, 1500).reason == "stray_tag_in_system"
     assert parse_bundle("Sure! Here are much better prompts for you, hope they help:\n" + text, SLOTS, 1500).reason == "extra_text"
     assert isinstance(parse_bundle("ok\n" + text, SLOTS, 1500), PromptBundle)  # small chatter tolerated
+    long = format_bundle_block({k: "y" * 1000 for k in SLOTS}, SLOTS)   # each slot under 1500, total 3000
+    assert isinstance(parse_bundle(long, SLOTS, 1500), PromptBundle)
+    assert isinstance(parse_bundle(long, SLOTS, 1500, max_total_chars=4000), PromptBundle)
+    assert parse_bundle(long, SLOTS, 1500, max_total_chars=2500).reason == "too_long_bundle=3000"
 
 
 @pytest.fixture(scope="module")
@@ -33,7 +37,10 @@ def tiny_model_dir(tmp_path_factory: pytest.TempPathFactory) -> str:
     from transformers import AutoTokenizer, Qwen2Config, Qwen2ForCausalLM
 
     d = tmp_path_factory.mktemp("tiny-qwen2")
-    tok = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-0.5B-Instruct")
+    try:  # needs the Qwen2.5 tokenizer files (HF hub cache); skip rather than fail when offline
+        tok = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-0.5B-Instruct")
+    except Exception as e:  # noqa: BLE001
+        pytest.skip(f"Qwen2.5 tokenizer unavailable offline: {type(e).__name__}")
     cfg = Qwen2Config(vocab_size=len(tok), hidden_size=32, intermediate_size=64, num_hidden_layers=2,
                       num_attention_heads=4, num_key_value_heads=2, max_position_embeddings=2048,
                       eos_token_id=tok.eos_token_id, pad_token_id=tok.pad_token_id, tie_word_embeddings=True)

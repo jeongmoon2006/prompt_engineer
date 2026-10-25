@@ -8,6 +8,7 @@ from typing import Any
 
 from env.verifiers.parsing import extract_json_object
 
+# Legacy default (toy domain) used only when the caller passes no numeric_fields.
 NUMERIC_FIELDS = {"temperature_K", "concentration_mM"}
 
 
@@ -32,7 +33,9 @@ def _is_bare_json(text: str) -> bool:
         return False
 
 
-def score_format(final_output: str, required_fields: list[str]) -> tuple[float, str]:
+def score_format(final_output: str, required_fields: list[str],
+                 numeric_fields: set[str] | list[str] | None = None) -> tuple[float, str]:
+    numeric = set(NUMERIC_FIELDS if numeric_fields is None else numeric_fields)
     obj = extract_json_object(final_output)
     if obj is None:
         return 0.0, "output is not a JSON object"
@@ -45,7 +48,7 @@ def score_format(final_output: str, required_fields: list[str]) -> tuple[float, 
         if extra:
             parts.append(f"unexpected keys {extra}")
         return 0.5, "JSON parsed but schema mismatch: " + ", ".join(parts)
-    bad_types = [f for f in required_fields if f in NUMERIC_FIELDS and not _is_number(obj[f])]
+    bad_types = [f for f in required_fields if f in numeric and not _is_number(obj[f])]
     if bad_types:
         return 0.5, f"non-numeric value for {bad_types}"
     if not _is_bare_json(final_output):

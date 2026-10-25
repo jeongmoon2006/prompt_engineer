@@ -12,7 +12,7 @@ from typing import Any
 import matplotlib
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
+import matplotlib.pyplot as plt
 
 
 def load_metrics(run_dir: Path) -> tuple[list[dict], list[dict]]:
@@ -23,6 +23,20 @@ def load_metrics(run_dir: Path) -> tuple[list[dict], list[dict]]:
         r = json.loads(line)
         (held if r.get("kind") == "heldout" else train).append(r)
     return train, held
+
+
+def train_budget(train: list[dict]) -> tuple[int, int]:
+    """(tokens, harness calls) spent on the G x tasks training rollouts only, excluding selection and held-out
+    evaluation. Older runs logged only `*_total` (tokens: train-only; calls: train + held-out), so the training
+    call count is rebuilt from per-step trajectory and rejection counts."""
+    if not train:
+        return 0, 0
+    e = train[-1]["extra"]
+    tokens = int(e.get("tokens_train", e["tokens_total"]))
+    if "harness_calls_train" in e:
+        return tokens, int(e["harness_calls_train"])
+    calls = sum(round(r["extra"]["n_trajectories"] * (1 - r["extra"]["rejection_rate"])) for r in train)
+    return tokens, calls
 
 
 def plot_run(run_dir: Path, out_dir: Path) -> dict[str, Any]:
@@ -52,33 +66,36 @@ def plot_run(run_dir: Path, out_dir: Path) -> dict[str, Any]:
     fig.savefig(path, dpi=130)
     plt.close(fig)
     last_h = held[-1] if held else {}
+    tokens, calls = train_budget(train)
     return {"run": run_dir.name, "steps": len(train), "final_train": train[-1]["mean_reward"] if train else None,
             "heldout_b0": last_h.get("b0"), "heldout_best": last_h.get("best_bundle"), "heldout_policy": last_h.get("policy_sample"),
-            "tokens_total": train[-1]["extra"]["tokens_total"] if train else 0,
-            "harness_calls": train[-1]["extra"]["harness_calls_total"] if train else 0, "plot": str(path)}
+            "train_tokens": tokens, "train_harness_calls": calls,
+            "all_harness_calls": train[-1]["extra"]["harness_calls_total"] if train else 0, "plot": str(path)}
 
 
 def compare(spec: dict[str, dict[str, str]], exp: Path, out: Path) -> list[dict[str, Any]]:
     """spec: {domain: {"B1": run_id, "B2": run_id}} -> Phase 3 table (markdown + json) and bar figure.
 
     B0 = hand-written prompts (held-out, from any run's heldout record; cost 0).
-    B1 = random-perturbation keep-best (held-out score of its best bundle; cost = its optimisation tokens).
-    B2 = GRPO (held-out score of best bundle and of a fresh policy sample; cost = its optimisation tokens).
+    B1 = random-perturbation keep-best (held-out score of its best bundle; cost = its training rollouts).
+    B2 = GRPO (held-out score of best bundle and of a fresh policy sample; cost = its training rollouts).
+    Cost columns count training rollouts only (selection-slice and held-out evaluations excluded).
     """
     rows: list[dict[str, Any]] = []
     for domain, runs in spec.items():
-        _, h1 = load_metrics(exp / runs["B1"])
+        t1, h1 = load_metrics(exp / runs["B1"])
         t2, h2 = load_metrics(exp / runs["B2"])
-        t1, _ = load_metrics(exp / runs["B1"])
         b0 = h2[-1]["b0"]
+        tok1, calls1 = train_budget(t1)
+        tok2, calls2 = train_budget(t2)
         rows.append({"domain": domain, "method": "B0 hand-written", "heldout": b0, "heldout_policy_sample": None,
                      "opt_tokens": 0, "opt_harness_calls": 0})
         rows.append({"domain": domain, "method": "B1 random keep-best", "heldout": h1[-1].get("best_bundle"), "heldout_policy_sample": h1[-1].get("policy_sample"),
-                     "opt_tokens": t1[-1]["extra"]["tokens_total"], "opt_harness_calls": t1[-1]["extra"]["harness_calls_total"]})
+                     "opt_tokens": tok1, "opt_harness_calls": calls1})
         rows.append({"domain": domain, "method": "B2 GRPO meta-policy", "heldout": h2[-1].get("best_bundle"), "heldout_policy_sample": h2[-1].get("policy_sample"),
-                     "opt_tokens": t2[-1]["extra"]["tokens_total"], "opt_harness_calls": t2[-1]["extra"]["harness_calls_total"]})
+                     "opt_tokens": tok2, "opt_harness_calls": calls2})
     out.mkdir(parents=True, exist_ok=True)
-    md = ["| domain | method | held-out reward (best bundle) | held-out reward (policy sample) | optimisation tokens | harness calls |",
+    md = ["| domain | method | held-out reward (best bundle) | held-out reward (policy sample) | training tokens | training harness calls |",
           "|---|---|---|---|---|---|"]
     for r in rows:
         ps = "-" if r["heldout_policy_sample"] is None else f"{r['heldout_policy_sample']:.3f}"
